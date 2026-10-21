@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#e9e8e4" />
+  <meta name="description" content="A living island sandbox with animated shoreline waves, procedural forests and interactive landscape tools." />
+  <title>Shoreline — A Living Beach Sandbox</title>
+</head>
+<body>
+<div id="app">
+  <div class="app-shell">
+    <canvas id="world" aria-label="Interactive 3D beach sandbox"></canvas>
+    <header class="top-left"><span class="brand-mark">◉</span><div><strong>Shoreline</strong><span class="brand-sub">A little world, alive.</span></div><span class="world-tag">BEACH 001</span></header>
+    <div class="top-right"><div class="live-dot"></div><span>LIVE SIMULATION</span><button id="btn-camera" title="Reset camera">↗ View</button><button id="btn-help" title="Show controls">? Help</button></div>
+    <aside class="tool-panel" aria-label="Sandbox tools">
+      <div class="panel-header"><span class="mini-eyebrow">YOUR SANDBOX</span><strong>Make your world.</strong></div>
+      <button class="tool active" data-tool="explore"><span class="tool-icon">✥</span><span>Explore</span><kbd>1</kbd></button>
+      <button class="tool" data-tool="raise"><span class="tool-icon">♠</span><span>Build sand</span><kbd>2</kbd></button>
+      <button class="tool" data-tool="lower"><span class="tool-icon">◒</span><span>Dig</span><kbd>3</kbd></button>
+      <button class="tool" data-tool="smooth"><span class="tool-icon">≋</span><span>Rake</span><kbd>4</kbd></button>
+      <div class="tool-divider"></div><div class="tool-label">CREATE</div>
+      <button class="tool" data-tool="plant"><span class="tool-icon">♣</span><span>Plant tree</span><kbd>5</kbd></button>
+      <button class="tool" data-tool="rock"><span class="tool-icon">⬟</span><span>Place rock</span><kbd>6</kbd></button>
+      <button class="tool" data-tool="boat"><span class="tool-icon">⛵</span><span>Place boat</span><kbd>7</kbd></button>
+      <button class="tool" data-tool="erase"><span class="tool-icon">⌫</span><span>Remove</span><kbd>8</kbd></button>
+      <div class="tool-divider"></div>
+      <div class="brush-row"><span>BRUSH SIZE</span><span id="brush-value">0.7</span></div>
+      <input id="brush" aria-label="Brush size" type="range" min="0.3" max="1.8" step="0.1" value="0.7" />
+      <button class="reset" id="btn-reset">↺ &nbsp; Reset island</button>
+    </aside>
+    <div class="right-stack">
+      <section class="glass-card day-card">
+        <div class="card-title"><span>☀ &nbsp; ISLAND TIME</span><span id="clock">10:00</span></div>
+        <div class="sun-track"><div id="sun-position" class="sun-orb"></div></div>
+        <div class="time-labels"><span>06:00</span><span>12:00</span><span>18:00</span></div>
+      </section>
+      <section class="glass-card weather-card">
+        <div class="card-title"><span>≈ &nbsp; OCEAN CONDITIONS</span><span class="status-dot">● Calm</span></div>
+        <div class="condition"><span>Wave height</span><strong id="wave-height">0.6 m</strong></div>
+        <input id="wave" type="range" min="0.1" max="1.6" step="0.1" value="0.6" aria-label="Wave height" />
+        <div class="condition"><span>Sea clarity</span><strong>Crystal</strong></div>
+        <div class="condition"><span>Island life</span><strong id="life-count">—</strong></div>
+      </section>
+    </div>
+    <div class="bottom-center glass-card">
+      <button id="btn-pause" class="pause-control" aria-label="Pause simulation">Ⅱ</button>
+      <div class="mini-stat"><span>TIME</span><strong id="speed-label">1×</strong></div>
+      <input id="speed" aria-label="Simulation speed" type="range" min="0.2" max="3" step="0.2" value="1" />
+      <div class="control-divider"></div>
+      <div class="mini-stat"><span>ZOOM</span><strong id="zoom-label">100%</strong></div>
+      <button id="zoom-in" class="zoom-btn" aria-label="Zoom in">＋</button><button id="zoom-out" class="zoom-btn" aria-label="Zoom out">−</button>
+      <button id="btn-undo" class="undo-btn" title="Undo last edit">↶ Undo</button>
+    </div>
+    <div class="hint-box glass-card" id="hint"><span class="hint-dot"></span><p>Drag to orbit. Scroll to zoom. Choose a tool to shape your shoreline.</p><button id="dismiss-hint" aria-label="Dismiss tip">×</button></div>
+    <div class="credit">AN INTERACTIVE COASTAL PLAYGROUND <span>•</span> THREE.JS + WEBGL</div>
+    <dialog id="help"><h2>Welcome to Shoreline.</h2><p>It's a tiny ocean you can play with. Waves wash along a procedurally generated beach as the sun travels overhead.</p><ul><li>Drag the scene to orbit; scroll to zoom.</li><li>Select Build sand, Dig or Rake and drag on terrain.</li><li>Plant trees, scatter rocks or launch boats.</li><li>Pause the clock or dial up wave energy.</li><li>Use keys 1–8 to change tools; Space to pause.</li></ul><button id="close-help">Got it →</button></dialog>
+  </div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
