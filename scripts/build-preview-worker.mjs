@@ -8,6 +8,7 @@
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 const root=resolve('dist');
 const files=[];
 async function collect(dir) {
@@ -28,7 +29,7 @@ for(const file of files){
    file.endsWith('.svg')?'image/svg+xml':
    file.endsWith('.png')?'image/png':'application/octet-stream';
  const bytes=await readFile(file);
- assets[pathname]={type,blob:gzipSync(bytes,{level:9}).toString('base64')};
+ assets[pathname]={type,blob:gzipSync(bytes,{level:9}).toString('base64'),etag:'"'+createHash('sha256').update(bytes).digest('hex').slice(0,24)+'"'};
 }
 const content=`// Generated from beach-sandbox-3d/dist: dedicated, isolated demo worker.
 const ASSETS=${JSON.stringify(assets)};
@@ -40,7 +41,8 @@ export default {
   const key=(url.pathname==='/'?'/index.html':url.pathname);
   const file=ASSETS[key];
   if(!file)return new Response('Not found',{status:404,headers:{'Content-Type':'text/plain; charset=utf-8'}});
-  const headers={'Content-Type':file.type,'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cache-Control':'public, max-age=60'};
+  const headers={'Content-Type':file.type,'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cache-Control':key.startsWith('/assets/')?'public, max-age=31536000, immutable':'no-cache, must-revalidate','ETag':file.etag};
+  if(request.headers.get('If-None-Match')===file.etag)return new Response(null,{status:304,headers});
   if(request.method==='HEAD')return new Response(null,{status:200,headers});
   const bytes=Uint8Array.from(atob(file.blob),c=>c.charCodeAt(0));
   const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));

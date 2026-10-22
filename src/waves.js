@@ -15,9 +15,14 @@ export function waveFront(time, alongShore = 0) {
 }
 const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
 const ease = x=>{const a=clamp(x,0,1);return a*a*(3-2*a);};
+export function swashPhase(time, alongShore=0) {
+  // Match exactly the beach GLSL phase so wet sand, foam and run-up stay aligned.
+  const phase=time*SURF_CYCLE_RATE+.23+Math.sin(alongShore*9+.3)*.027+alongShore*.012;
+  return ((phase%1)+1)%1;
+}
 export function runupPosition(time, alongShore = 0, strength = .6) {
-  // Swash begins as the offshore breaker approaches land and then drains back.
-  const p=waveFront(time+.23/SURF_CYCLE_RATE,alongShore);
+  // The swash starts when the offshore breaker approaches the beach.
+  const p=swashPhase(time,alongShore);
   const run=.38+.26*clamp(strength,.1,1.6)/1.6;
   const wet=p<.65?ease(p/.65):1-ease((p-.65)/.35);
   return .84-run*wet;
@@ -203,17 +208,26 @@ void main(){
   float spray=smoothstep(.62,.9,snoise(vUv*vec2(240.,319.)-uTime*.44));
   float trailingFront=front+.115+.012*sin(vUv.y*49.+uTime*.7);
   float lingering=exp(-pow((vUv.x-trailingFront)/.025,2.));
-  float alpha=white*(.81+.17*bubbles)+tail*(bubbles*.28+spray*.18);
-  alpha+=lingering*(.18+.29*bubbles)*(.40+.60*wet);
+  float laceBands=pow(max(0.,sin((vUv.x-front)*118.+lace*5.-uTime*.36)),8.);
+  float softBreak=smoothstep(.31,.69,snoise(vUv*vec2(34.,116.)+vec2(uTime*.14,-uTime*.2)));
+  float foamAlpha=white*(.79+.18*bubbles)+tail*(bubbles*.27+spray*.16);
+  foamAlpha+=lingering*(.18+.29*bubbles)*(.40+.60*wet);
+  foamAlpha+=tail*laceBands*softBreak*.12;
   // Thin clear water film after crest passage darkens sand without an opaque
   // cyan rectangle. Fade the whole film as the breaker drains.
   float wetFilm=smoothstep(front-.015,front+.09,vUv.x)
                  *(1.-smoothstep(front+.26,front+.42,vUv.x));
   float retreatFade=1.-smoothstep(.75,.99,phase);
-  alpha+=wetFilm*.15*retreatFade;
-  alpha*=smoothstep(.008,.050,vUv.x)*(1.-smoothstep(.975,1.,vUv.x));
-  alpha*=uFoam;
+  // Wet sand must persist even at minimum foam intensity: it is not whitewater.
+  float wetAlpha=wetFilm*.19*retreatFade;
+  float shoreFade=smoothstep(.008,.050,vUv.x)*(1.-smoothstep(.975,1.,vUv.x));
+  foamAlpha*=uFoam*shoreFade;
+  wetAlpha*=shoreFade;
   vec3 foamColor=mix(vec3(.32,.72,.69),vec3(.98,1.,.97),
                       clamp(max(white*.96,lingering*.88)+bubbles*.28,0.,1.));
-  gl_FragColor=vec4(foamColor*(.75+.25*uDay),clamp(alpha*(.82+.18*uWave),0.,.94));
+  vec3 wetColor=vec3(.35,.54,.50);
+  float totalAlpha=clamp(foamAlpha*(.82+.18*uWave)+wetAlpha,0.,.94);
+  float whiteFraction=foamAlpha/(foamAlpha+wetAlpha+.0001);
+  vec3 color=mix(wetColor,foamColor,whiteFraction);
+  gl_FragColor=vec4(color*(.75+.25*uDay),totalAlpha);
 }`;
