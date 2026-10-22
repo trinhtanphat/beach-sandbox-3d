@@ -4,6 +4,7 @@
  */
 import { DEPTH, HALF_WIDTH, shoreline, seededRandom } from './simulation.js';
 import { breakerPhase, breakerPosition, frontWarp, waveEnvelope, sectionBreak, breakSectionGLSL } from './waves.js';
+import { createOrganicFoamAtlas, FOAM_VARIANTS } from './foam-atlas.js';
 export const SPRAY_PARTICLES=460;
 
 export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
@@ -28,12 +29,15 @@ attribute float aAlong;
 attribute float aSeed;
 attribute float aRandom;
 attribute float aPhaseShift;
+attribute float aFoamVariant;
 uniform float uTime;
 uniform float uWave;
 varying float vLife;
+varying float vFoamVariant;
 ${breakSectionGLSL}
 void main(){
   float v=aAlong;
+  vFoamVariant=aFoamVariant;
   float cycle=fract(uTime*.23+sin(v*9.+.3)*.027+v*.012+aPhaseShift);
   vLife=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle))*(aPhaseShift>.1?.68:1.)*breakingSections(v,uTime,aPhaseShift);
   float front=.34-.33*cycle
@@ -52,8 +56,12 @@ export const sprayFragmentShader = `
 uniform sampler2D uMap;
 uniform float uFoam;
 varying float vLife;
+varying float vFoamVariant;
 void main(){
-  vec4 foam=texture2D(uMap,gl_PointCoord);
+  vec2 tile=vec2(mod(vFoamVariant,2.),floor(vFoamVariant*.5));
+  // Tile gutters prevent visible neighbor-bleeding under linear sampling.
+  vec2 atlasUV=(tile+mix(vec2(.045),vec2(.955),gl_PointCoord))*.5;
+  vec4 foam=texture2D(uMap,atlasUV);
   foam.a*=vLife*.85*uFoam;
   if(foam.a<.018)discard;
   gl_FragColor=foam;
@@ -67,6 +75,7 @@ export function createSurfSpray(THREE,scene) {
   const seeds=new Float32Array(SPRAY_PARTICLES);
   const randoms=new Float32Array(SPRAY_PARTICLES);
   const phaseShifts=new Float32Array(SPRAY_PARTICLES);
+  const foamVariants=new Float32Array(SPRAY_PARTICLES);
   for(let i=0;i<SPRAY_PARTICLES;i++){
     const seed=i+1;
     const z=(rand()-.5)*(DEPTH-.35);
@@ -81,6 +90,7 @@ export function createSurfSpray(THREE,scene) {
     seeds[i]=seed;
     randoms[i]=r-Math.floor(r);
     phaseShifts[i]=(i%3===0)?.56:0;
+    foamVariants[i]=i%FOAM_VARIANTS;
   }
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
@@ -89,18 +99,9 @@ export function createSurfSpray(THREE,scene) {
   geometry.setAttribute('aSeed',new THREE.BufferAttribute(seeds,1));
   geometry.setAttribute('aRandom',new THREE.BufferAttribute(randoms,1));
   geometry.setAttribute('aPhaseShift',new THREE.BufferAttribute(phaseShifts,1));
-  // Procedurally generated circular alpha — no external image request.
-  const texSize=32;
-  const pixels=new Uint8Array(texSize*texSize*4);
-  for(let y=0;y<texSize;y++)for(let x=0;x<texSize;x++){
-    const nx=(x+.5)/texSize*2-1, ny=(y+.5)/texSize*2-1;
-    const radius=Math.sqrt(nx*nx+ny*ny);
-    const softness=Math.max(0,Math.min(1,(1-radius)/.48));
-    const a=softness*softness*(3-2*softness);
-    const offset=(y*texSize+x)*4;
-    pixels[offset]=245;pixels[offset+1]=253;pixels[offset+2]=247;
-    pixels[offset+3]=Math.round(a*245);
-  }
+  geometry.setAttribute('aFoamVariant',new THREE.BufferAttribute(foamVariants,1));
+  // Four distinct foamy clusters in a single GPU texture atlas.
+  const {size:texSize,pixels}=createOrganicFoamAtlas();
   const foamTexture=new THREE.DataTexture(pixels,texSize,texSize,THREE.RGBAFormat);
   foamTexture.magFilter=THREE.LinearFilter;
   foamTexture.minFilter=THREE.LinearFilter;
