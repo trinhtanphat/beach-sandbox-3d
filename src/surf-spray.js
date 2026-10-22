@@ -1,10 +1,11 @@
 /**
- * One batched spray cloud that rides the same fronts as the ocean shader.
- * Deterministic particles, no texture fetch and no object-per-particle costs.
+ * Foam spray animated on the GPU. All 460 particle anchor positions and seeds
+ * are uploaded only once. CPU sample remains available for deterministic tests.
  */
 import { DEPTH, HALF_WIDTH, shoreline, seededRandom } from './simulation.js';
 import { breakerPhase, waveEnvelope } from './waves.js';
-const PARTICLES = 460;
+export const SPRAY_PARTICLES=460;
+
 export function surfSprayPoint(time, z, seed=0, strength=.6) {
   const v=(z+DEPTH/2)/DEPTH;
   const phase=breakerPhase(time,v);
@@ -21,17 +22,67 @@ export function surfSprayPoint(time, z, seed=0, strength=.6) {
     z,life
   };
 }
+
+export const sprayVertexShader = `
+attribute float aWaterWidth;
+attribute float aAlong;
+attribute float aSeed;
+attribute float aRandom;
+uniform float uTime;
+uniform float uWave;
+varying float vLife;
+void main(){
+  float v=aAlong;
+  float cycle=fract(uTime*.23+sin(v*9.+.3)*.027+v*.012);
+  vLife=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle));
+  float front=.34-.33*cycle+.005*sin(v*64.+uTime*.6)
+              +.004*sin(v*151.-uTime*.47);
+  vec3 p=position;
+  p.x+=aWaterWidth*(front+.004+.065*aRandom);
+  p.y=.155+.012*sin(uTime*2.4+aSeed)+aRandom*.055*uWave;
+  vec4 view=modelViewMatrix*vec4(p,1.);
+  gl_Position=projectionMatrix*view;
+  gl_PointSize=clamp(6.2*(.76+.30*uWave),1.,11.);
+}`;
+
+export const sprayFragmentShader = `
+uniform sampler2D uMap;
+varying float vLife;
+void main(){
+  vec4 foam=texture2D(uMap,gl_PointCoord);
+  foam.a*=vLife*.85;
+  if(foam.a<.018)discard;
+  gl_FragColor=foam;
+}`;
+
 export function createSurfSpray(THREE,scene) {
   const rand=seededRandom(77822);
-  const seeds=Array.from({length:PARTICLES},(_,i)=>({
-    id:i+1,z:(rand()-.5)*(DEPTH-.35),jitter:(rand()-.5)*.10
-  }));
-  const array=new Float32Array(PARTICLES*3);
-  const lifeArray=new Float32Array(PARTICLES);
+  const positions=new Float32Array(SPRAY_PARTICLES*3);
+  const widths=new Float32Array(SPRAY_PARTICLES);
+  const along=new Float32Array(SPRAY_PARTICLES);
+  const seeds=new Float32Array(SPRAY_PARTICLES);
+  const randoms=new Float32Array(SPRAY_PARTICLES);
+  for(let i=0;i<SPRAY_PARTICLES;i++){
+    const seed=i+1;
+    const z=(rand()-.5)*(DEPTH-.35);
+    const jitter=(rand()-.5)*.10;
+    const coast=shoreline(z)-.1;
+    const r=Math.sin(seed*127.1+z*311.7)*43758.5453;
+    positions[i*3]=coast;
+    positions[i*3+1]=0;
+    positions[i*3+2]=z+jitter;
+    widths[i]=HALF_WIDTH+.06-coast;
+    along[i]=(z+DEPTH/2)/DEPTH;
+    seeds[i]=seed;
+    randoms[i]=r-Math.floor(r);
+  }
   const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.BufferAttribute(array,3).setUsage(THREE.DynamicDrawUsage));
-  geometry.setAttribute('aLife',new THREE.BufferAttribute(lifeArray,1).setUsage(THREE.DynamicDrawUsage));
-  // Soft, round splashes rather than GL_POINTS square pixels.
+  geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+  geometry.setAttribute('aWaterWidth',new THREE.BufferAttribute(widths,1));
+  geometry.setAttribute('aAlong',new THREE.BufferAttribute(along,1));
+  geometry.setAttribute('aSeed',new THREE.BufferAttribute(seeds,1));
+  geometry.setAttribute('aRandom',new THREE.BufferAttribute(randoms,1));
+  // Procedurally generated circular alpha — no external image request.
   const texSize=32;
   const pixels=new Uint8Array(texSize*texSize*4);
   for(let y=0;y<texSize;y++)for(let x=0;x<texSize;x++){
@@ -48,45 +99,20 @@ export function createSurfSpray(THREE,scene) {
   foamTexture.minFilter=THREE.LinearFilter;
   foamTexture.needsUpdate=true;
   const material=new THREE.ShaderMaterial({
-    uniforms:{uMap:{value:foamTexture},uPointSize:{value:6.2},uWave:{value:.6}},
-    vertexShader:`
-      attribute float aLife;
-      varying float vLife;
-      uniform float uPointSize;uniform float uWave;
-      void main(){
-        vLife=aLife;
-        vec4 view=modelViewMatrix*vec4(position,1.);
-        gl_Position=projectionMatrix*view;
-        gl_PointSize=clamp(uPointSize*(.76+.30*uWave),1.,11.);
-      }`,
-    fragmentShader:`
-      uniform sampler2D uMap;
-      varying float vLife;
-      void main(){
-        vec4 foam=texture2D(uMap,gl_PointCoord);
-        foam.a*=vLife*.85;
-        if(foam.a<.018)discard;
-        gl_FragColor=foam;
-      }`,
+    uniforms:{uMap:{value:foamTexture},uTime:{value:0},uWave:{value:.6}},
+    vertexShader:sprayVertexShader,
+    fragmentShader:sprayFragmentShader,
     transparent:true,depthWrite:false
   });
   const points=new THREE.Points(geometry,material);
   points.frustumCulled=false;
   points.renderOrder=7;
   scene.add(points);
-  function update(time,strength) {
+  function update(time,strength){
+    material.uniforms.uTime.value=time;
     material.uniforms.uWave.value=strength;
-    for(let i=0;i<PARTICLES;i++){
-      const s=seeds[i];
-      const p=surfSprayPoint(time,s.z,s.id,strength);
-      array[i*3]=p.x;
-      array[i*3+1]=p.y;
-      array[i*3+2]=p.z+s.jitter;
-      lifeArray[i]=p.life;
-    }
-    geometry.attributes.position.needsUpdate=true;
-    geometry.attributes.aLife.needsUpdate=true;
   }
   update(0,.6);
-  return {points,update,count:PARTICLES,dispose(){scene.remove(points);geometry.dispose();material.dispose();foamTexture.dispose();}};
+  return {points,update,count:SPRAY_PARTICLES,
+    dispose(){scene.remove(points);geometry.dispose();material.dispose();foamTexture.dispose();}};
 }
