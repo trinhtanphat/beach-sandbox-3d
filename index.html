@@ -27,6 +27,8 @@
       <div class="tool-divider"></div>
       <div class="brush-row"><span>BRUSH SIZE</span><span id="brush-value">0.7</span></div>
       <input id="brush" aria-label="Brush size" type="range" min="0.3" max="1.8" step="0.1" value="0.7" />
+      <div class="save-actions"><button id="btn-save" title="Save your island on this browser">↓ Save</button><button id="btn-load" title="Restore your last saved island">↥ Load</button></div>
+      <button class="reset" id="btn-shot" title="Save a PNG screenshot">▣ &nbsp; Export image</button>
       <button class="reset" id="btn-reset">↺ &nbsp; Reset island</button>
     </aside>
     <div class="right-stack">
@@ -41,6 +43,7 @@
         <input id="wave" type="range" min="0.1" max="1.6" step="0.1" value="0.6" aria-label="Wave height" />
         <div class="condition"><span>Sea clarity</span><strong>Crystal</strong></div>
         <div class="condition"><span>Island life</span><strong id="life-count">—</strong></div>
+        <div class="condition"><span>Render speed</span><strong id="fps-label">— FPS</strong></div>
       </section>
     </div>
     <div class="bottom-center glass-card">
@@ -53,6 +56,7 @@
       <button id="btn-undo" class="undo-btn" title="Undo last edit">↶ Undo</button>
     </div>
     <div class="hint-box glass-card" id="hint"><span class="hint-dot"></span><p>Drag to orbit. Scroll to zoom. Choose a tool to shape your shoreline.</p><button id="dismiss-hint" aria-label="Dismiss tip">×</button></div>
+    <div id="status-toast" class="status-toast" role="status" aria-live="polite" hidden></div>
     <div class="credit">AN INTERACTIVE COASTAL PLAYGROUND <span>•</span> THREE.JS + WEBGL</div>
     <dialog id="help"><h2>Welcome to Shoreline.</h2><p>It's a tiny ocean you can play with. Waves wash along a procedurally generated beach as the sun travels overhead.</p><ul><li>Drag the scene to orbit; scroll to zoom.</li><li>Select Build sand, Dig or Rake and drag on terrain.</li><li>Plant trees, scatter rocks or launch boats.</li><li>Pause the clock or dial up wave energy.</li><li>Use keys 1–8 to change tools; Space to pause.</li></ul><button id="close-help">Got it →</button></dialog>
   </div>

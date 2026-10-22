@@ -2,10 +2,20 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WIDTH, DEPTH, HALF_WIDTH, HALF_DEPTH, clamp, smoothstep, shoreline, landDistance, noise, terrainHeight, forestWeight, seededRandom, brushInfluence, daylight, clockLabel } from './simulation.js';
 import { oceanVertexShader, oceanFragmentShader, swashVertexShader, swashFragmentShader } from './waves.js';
+import { createSnapshot, parseSnapshot, SAVE_KEY } from './island-state.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+let renderer;
+try {
+ renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
+} catch (error) {
+ const warning=document.createElement('div');
+ warning.className='webgl-error';
+ warning.innerHTML='<strong>3D rendering unavailable</strong>Your browser cannot start WebGL. Try an updated browser with hardware acceleration enabled.';
+ document.querySelector('.app-shell').append(warning);
+ throw error;
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -156,7 +166,7 @@ function createTree(x,z,scale=1) {
   const crown2=new THREE.Mesh(new THREE.IcosahedronGeometry(.21*scale,1),crown.material);
   crown2.position.set(.13*scale,.48*scale,.13*scale);g.add(crown2);
   g.position.set(x,y,z);
-  g.userData.kind='tree';scene.add(g);return g;
+  g.userData.kind='tree';g.userData.scale=scale;scene.add(g);return g;
 }
 const FOREST_COUNT=840;
 const treeGeo=new THREE.IcosahedronGeometry(.28,1);
@@ -165,12 +175,14 @@ const leaves=new THREE.InstancedMesh(treeGeo,leafMaterial,FOREST_COUNT);
 const smallLeaves=new THREE.InstancedMesh(treeGeo,leafMaterial,FOREST_COUNT);
 const trunks=new THREE.InstancedMesh(trunkGeo,trunkMaterial,FOREST_COUNT);
 const tempObject=new THREE.Object3D();
+const forestLocations=[];
 const foliagePalette=['#4d8d39','#80ad4a','#a8bc69','#649d3a','#5c973e','#7da83c','#3e7c35','#b1b66a'];
 for(let i=0;i<FOREST_COUNT;i++) {
  let x,z, tries=0;
  do { z=(rand()-.5)*(DEPTH-.72);x=-8.7+rand()*9.2;tries++; } while(tries<45 && (landDistance(x,z)<1.5 || rand()>forestWeight(x,z)));
  if(landDistance(x,z)<.5)x=shoreline(z)-.85;
  const y=terrainHeight(x,z), sc=.6+rand()*.85;
+ forestLocations.push({x,z,y});
  tempObject.position.set(x,y+.17*sc,z);tempObject.scale.set(sc,sc,sc);tempObject.rotation.set(0,rand()*6,0);tempObject.updateMatrix();trunks.setMatrixAt(i,tempObject.matrix);
  tempObject.position.set(x,y+.40*sc,z);tempObject.scale.set(sc*(.9+rand()*.28),sc*(.8+rand()*.22),sc*(.9+rand()*.3));tempObject.updateMatrix();leaves.setMatrixAt(i,tempObject.matrix);
  tempObject.position.set(x+.1*sc,y+.43*sc,z+.1*sc);tempObject.scale.set(sc*.6,sc*.62,sc*.62);tempObject.updateMatrix();smallLeaves.setMatrixAt(i,tempObject.matrix);
@@ -185,7 +197,7 @@ function createRock(x,z,sc=1,rockMaterial=sandRockMaterial){
  const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(1,0),rockMaterial);
  rock.position.set(x,baseY+.10*sc,z);
  rock.scale.set(.27*sc,.19*sc,.32*sc);rock.rotation.set(rand()*.25,rand()*6,rand()*.25);rock.castShadow=true;rock.receiveShadow=true;
- rock.userData.kind='rock';rock.userData.baseOffset=.10*sc;scene.add(rock);return rock;
+ rock.userData.kind='rock';rock.userData.scale=sc;rock.userData.baseOffset=.10*sc;scene.add(rock);return rock;
 }
 for(let i=0;i<94;i++){
  const z=(rand()-.5)*10.1;
@@ -214,7 +226,7 @@ function createBoat(x,z,scale=1) {
  sailGeometry.setAttribute('position',new THREE.Float32BufferAttribute([0,.67*scale,0,0,.22*scale,0,.27*scale,.22*scale,0],3));
  sailGeometry.computeVertexNormals();
  const sail=new THREE.Mesh(sailGeometry,new THREE.MeshStandardMaterial({color:'#fff8dc',side:THREE.DoubleSide,roughness:1}));boat.add(sail);
- boat.position.set(x,.08,z);boat.rotation.y=rand()*6.28;boat.userData.kind='boat';boat.userData.phase=rand()*6.28;
+ boat.position.set(x,.08,z);boat.rotation.y=rand()*6.28;boat.userData.kind='boat';boat.userData.scale=scale;boat.userData.phase=rand()*6.28;
  scene.add(boat);boats.push(boat);return boat;
 }
 createBoat(4.35,-2.05,1.0);
@@ -226,6 +238,17 @@ const brushRing=new THREE.Mesh(new THREE.RingGeometry(.63,.7,64),new THREE.MeshB
 brushRing.rotation.x=-Math.PI/2;brushRing.visible=false;scene.add(brushRing);
 const interactiveItems=[];
 const history=[];
+function discardObject(object){
+ scene.remove(object);
+ if(object.userData.kind==='boat'){
+  const index=boats.indexOf(object);
+  if(index>=0)boats.splice(index,1);
+ }
+}
+function restoreObject(object){
+ scene.add(object);
+ if(object.userData.kind==='boat'&&!boats.includes(object))boats.push(object);
+}
 let tool='explore', isPainting=false, waveHeight=.6, speed=1, paused=false, elapsed=0, hours=10, brushSize=.7, zoomBase=1;
 const raycaster=new THREE.Raycaster(),pointerNdc=new THREE.Vector2(),landPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.1),hit=new THREE.Vector3();
 function editedHeight(x,z){
@@ -242,6 +265,23 @@ function pointerWorld(event){
  if(!point)return null;
  if(point.x<-HALF_WIDTH||point.x>HALF_WIDTH||point.z<-HALF_DEPTH||point.z>HALF_DEPTH)return null;
  return point.clone();
+}
+function syncForestElevation(){
+ const m=new THREE.Matrix4();
+ let changed=false;
+ for(let i=0;i<forestLocations.length;i++){
+  const record=forestLocations[i], y=editedHeight(record.x,record.z);
+  const diff=y-record.y;
+  if(Math.abs(diff)<.0005)continue;
+  for(const mesh of [trunks,leaves,smallLeaves]){
+   mesh.getMatrixAt(i,m);
+   m.elements[13]+=diff;
+   mesh.setMatrixAt(i,m);
+  }
+  record.y=y;
+  changed=true;
+ }
+ if(changed)for(const mesh of [trunks,leaves,smallLeaves])mesh.instanceMatrix.needsUpdate=true;
 }
 function updateGeometry(){
  terrainPositions.needsUpdate=true;terrainGeometry.computeVertexNormals();
@@ -275,20 +315,86 @@ function handleBrush(point){
  if(tool==='erase'){
    let closest=null,best=brushSize;
    for(const o of interactiveItems){const d=Math.hypot(o.position.x-point.x,o.position.z-point.z);if(d<best){best=d;closest=o;}}
-   if(closest){scene.remove(closest);interactiveItems.splice(interactiveItems.indexOf(closest),1);history.push({type:'removed',object:closest});}
+   if(closest){discardObject(closest);interactiveItems.splice(interactiveItems.indexOf(closest),1);history.push({type:'removed',object:closest});}
  }
  updateLife();
 }
 function updateLife(){document.getElementById('life-count').textContent=`${FOREST_COUNT+interactiveItems.filter(o=>o.userData.kind==='tree').length} trees`;}
 function undo(){const state=history.pop();if(!state)return;
- if(state.type==='terrain'){for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,state.heights[i]);updateGeometry();}
- else if(state.type==='added'){scene.remove(state.object);interactiveItems.splice(interactiveItems.indexOf(state.object),1);}
- else if(state.type==='removed'){scene.add(state.object);interactiveItems.push(state.object);}
+ if(state.type==='terrain'){for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,state.heights[i]);updateGeometry();syncForestElevation();}
+ else if(state.type==='added'){discardObject(state.object);interactiveItems.splice(interactiveItems.indexOf(state.object),1);}
+ else if(state.type==='removed'){restoreObject(state.object);interactiveItems.push(state.object);}
  updateLife();
 }
-function reset(){while(interactiveItems.length)scene.remove(interactiveItems.pop());
+function reset(){while(interactiveItems.length)discardObject(interactiveItems.pop());
  for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,initialHeights[i]);
- updateGeometry();history.length=0;updateLife();}
+ updateGeometry();syncForestElevation();history.length=0;updateLife();}
+function toast(message) {
+ const node=document.getElementById('status-toast');
+ node.textContent=message;
+ node.hidden=false;
+ clearTimeout(toast.timer);
+ toast.timer=setTimeout(()=>{node.hidden=true;},4000);
+}
+function snapshotIsland() {
+ const heights=new Float32Array(terrainPositions.count);
+ for(let i=0;i<heights.length;i++)heights[i]=terrainPositions.getY(i);
+ const objects=interactiveItems.map(o=>({
+  kind:o.userData.kind,x:o.position.x,z:o.position.z,
+  scale:o.userData.scale||1
+ }));
+ return createSnapshot({heights,objects,wave:waveHeight,speed,hours});
+}
+function saveIsland(){
+ try {
+  const state=snapshotIsland();
+  localStorage.setItem(SAVE_KEY,JSON.stringify(state));
+  toast('Island saved to this browser.');
+ } catch(e) {toast('Unable to save island: '+e.message);}
+}
+function loadIsland(){
+ try {
+  const data=localStorage.getItem(SAVE_KEY);
+  if(!data){toast('No saved island yet. Use Save first.');return;}
+  const saved=parseSnapshot(data,terrainPositions.count);
+  reset();
+  for(let i=0;i<saved.heights.length;i++)terrainPositions.setY(i,saved.heights[i]);
+  updateGeometry();
+  syncForestElevation();
+  for(const item of saved.objects){
+   const o=item.kind==='tree'?createTree(item.x,item.z,item.scale):
+    item.kind==='rock'?createRock(item.x,item.z,item.scale):
+    createBoat(item.x,item.z,item.scale);
+   interactiveItems.push(o);
+  }
+  waveHeight=saved.wave;
+  speed=saved.speed;
+  hours=saved.hours;
+  document.getElementById('wave').value=String(waveHeight);
+  document.getElementById('speed').value=String(speed);
+  document.getElementById('wave-height').textContent=waveHeight.toFixed(1)+' m';
+  document.getElementById('speed-label').textContent=speed.toFixed(1)+'×';
+  document.querySelector('.status-dot').textContent=waveHeight>1?'● Energetic':'● Calm';
+  history.length=0;
+  updateLife();
+  toast('Island restored: '+saved.objects.length+' placed objects.');
+ } catch(e){toast('Unable to load island: '+e.message);}
+}
+function exportImage(){
+ try {
+  renderer.render(scene,camera);
+  const url=renderer.domElement.toDataURL('image/png');
+  if(url.length<1000)throw new Error('canvas has no image');
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='shoreline-beach-sandbox.png';
+  document.body.append(a);
+  a.click();
+  a.remove();
+  toast('PNG screenshot exported.');
+ } catch(e){toast('Unable to export screenshot: '+e.message);}
+}
+canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();toast('3D context lost. Reload to resume rendering.');});
 function setTool(next){tool=next;controls.enabled=tool==='explore';brushRing.visible=false;
  for(const b of document.querySelectorAll('[data-tool]'))b.classList.toggle('active',b.dataset.tool===tool);
  canvas.style.cursor=tool==='explore'?'grab':'crosshair';
@@ -310,12 +416,15 @@ canvas.addEventListener('pointermove',event=>{
  brushRing.position.set(point.x,Math.max(.11,point.y+.065),point.z);
  if(isPainting && ['raise','lower','smooth'].includes(tool)&&performance.now()-lastDraw>25){handleBrush(point);lastDraw=performance.now();}
 });
-function release(event){isPainting=false;if(event?.pointerId!==undefined&&canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);}
+function release(event){if(isPainting&&['raise','lower','smooth'].includes(tool))syncForestElevation();isPainting=false;if(event?.pointerId!==undefined&&canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);}
 canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
-canvas.addEventListener('pointerleave',()=>{brushRing.visible=false;isPainting=false;});
+canvas.addEventListener('pointerleave',()=>{brushRing.visible=false;if(isPainting&&['raise','lower','smooth'].includes(tool))syncForestElevation();isPainting=false;});
 for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));
 document.getElementById('brush').addEventListener('input',e=>{brushSize=Number(e.target.value);document.getElementById('brush-value').textContent=brushSize.toFixed(1);});
 document.getElementById('btn-undo').addEventListener('click',undo);
+document.getElementById('btn-save').addEventListener('click',saveIsland);
+document.getElementById('btn-load').addEventListener('click',loadIsland);
+document.getElementById('btn-shot').addEventListener('click',exportImage);
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Restore the island to its original landscape?'))reset();});
 document.getElementById('wave').addEventListener('input',e=>{waveHeight=Number(e.target.value);document.getElementById('wave-height').textContent=`${waveHeight.toFixed(1)} m`;document.querySelector('.status-dot').textContent=waveHeight>1?'● Energetic':'● Calm';});
 document.getElementById('speed').addEventListener('input',e=>{speed=Number(e.target.value);document.getElementById('speed-label').textContent=`${speed.toFixed(1)}×`;});
@@ -338,8 +447,15 @@ function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;
 window.addEventListener('resize',resize);
 updateLife();resize();
 const watch = new THREE.Clock();
+let fpsSeconds=0,fpsFrames=0;
 function animate(){requestAnimationFrame(animate);
- const dt=Math.min(watch.getDelta(),.08);
+ const rawDelta=watch.getDelta();
+ const dt=Math.min(rawDelta,.08);
+ fpsSeconds+=rawDelta;fpsFrames++;
+ if(fpsSeconds>=1){
+  document.getElementById('fps-label').textContent=Math.round(fpsFrames/fpsSeconds)+' FPS';
+  fpsSeconds=0;fpsFrames=0;
+ }
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}
  waveUniforms.uTime.value=elapsed;
  waveUniforms.uWave.value=waveHeight;
