@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v4**: two coordinated shoreward-travelling wave fronts, solid breaking white crests, aerated foam behind the breaker, coherent shoreline wash, physically aligned sea level, animated fine spray (460 batched points), advancing **and retreating** swash over the sand. The ocean and beach shader share the same 4.35-second wave cycle. No static water background, external textures or paid assets.
+- **Animated surf v5**: two shoreward-moving swells now drive a real, raised, GPU-rendered **curling foam-lip mesh** that traces the curved beach. Shallow-water foam and a brighter beach-edge wash stay synchronized with the water elevation; 460 batched spray particles are rendered as soft, procedural circular droplets rather than square pixels. Increasing Wave height increases actual crest elevation. Sand receives advancing and retreating swash over the same 4.35-second cycle. All wave graphics are original, with no external textures.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
@@ -45,7 +45,8 @@ npm run preview
 - `src/simulation.js` — small deterministic geometry/math API, tested with Node's test runner.
 - `src/main.js` — procedural terrain and vegetation generation, 3D object placement, island editing, playback controls.
 - `src/waves.js` — ocean/swash GLSL shaders sharing a wave-cycle model, repeatable breaker-front and swash run-up/retreat.
-- `src/surf-spray.js` — batched moving foam/spray flecks riding the shoreline breaker, deterministic and unit tested.
+- `src/surf-spray.js` — batched, soft-edged foam droplets generated from an in-memory 32×32 alpha texture, riding the shoreline breaker.
+- `src/breaker-lip.js` — dynamically tessellated curling whitewater crest with the same shore-relative wavefront phase as the ocean shader.
 - `src/island-state.js` — versioned, bounded save format with validation and round-trip tests.
 - `src/ambience.js` — deterministic seagull animation and gesture-triggered synthesized surf/chirp Web Audio.
 - `src/reefs.js` — GPU-instanced coral and reef rocks.

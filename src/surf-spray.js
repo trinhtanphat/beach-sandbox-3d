@@ -15,7 +15,7 @@ export function surfSprayPoint(time, z, seed=0, strength=.6) {
   const waterWidth=HALF_WIDTH+.06-coast;
   return {
     x: coast+waterWidth*(front+(.004+.065*r)),
-    y: .13+.012*Math.sin(time*2.4+seed)+r*.048*strength,
+    y: .155+.012*Math.sin(time*2.4+seed)+r*.055*strength,
     z
   };
 }
@@ -27,9 +27,25 @@ export function createSurfSpray(THREE,scene) {
   const array=new Float32Array(PARTICLES*3);
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.BufferAttribute(array,3).setUsage(THREE.DynamicDrawUsage));
+  // Soft, round splashes rather than GL_POINTS square pixels.
+  const texSize=32;
+  const pixels=new Uint8Array(texSize*texSize*4);
+  for(let y=0;y<texSize;y++)for(let x=0;x<texSize;x++){
+    const nx=(x+.5)/texSize*2-1, ny=(y+.5)/texSize*2-1;
+    const radius=Math.sqrt(nx*nx+ny*ny);
+    const softness=Math.max(0,Math.min(1,(1-radius)/.48));
+    const a=softness*softness*(3-2*softness);
+    const offset=(y*texSize+x)*4;
+    pixels[offset]=245;pixels[offset+1]=253;pixels[offset+2]=247;
+    pixels[offset+3]=Math.round(a*245);
+  }
+  const foamTexture=new THREE.DataTexture(pixels,texSize,texSize,THREE.RGBAFormat);
+  foamTexture.magFilter=THREE.LinearFilter;
+  foamTexture.minFilter=THREE.LinearFilter;
+  foamTexture.needsUpdate=true;
   const material=new THREE.PointsMaterial({
-    color:'#f6fff6',size:.055,transparent:true,opacity:.88,
-    depthWrite:false,sizeAttenuation:true
+    color:'#f9fff8',map:foamTexture,size:.10,transparent:true,opacity:.82,
+    alphaTest:.025,depthWrite:false,sizeAttenuation:true
   });
   const points=new THREE.Points(geometry,material);
   points.frustumCulled=false;
@@ -46,5 +62,5 @@ export function createSurfSpray(THREE,scene) {
     geometry.attributes.position.needsUpdate=true;
   }
   update(0,.6);
-  return {points,update,count:PARTICLES};
+  return {points,update,count:PARTICLES,dispose(){scene.remove(points);geometry.dispose();material.dispose();foamTexture.dispose();}};
 }

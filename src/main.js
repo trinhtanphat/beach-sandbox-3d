@@ -7,6 +7,7 @@ import { BIRD_COUNT, createSeagulls, createOceanAudio } from './ambience.js';
 import { makeReefField } from './reefs.js';
 import { createPalmGrove } from './palms.js';
 import { createSurfSpray } from './surf-spray.js';
+import { createBreakerLip } from './breaker-lip.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
@@ -149,6 +150,7 @@ const waterMaterial = new THREE.ShaderMaterial({
 const water = new THREE.Mesh(seaGeometry,waterMaterial);
 water.renderOrder = 4;
 scene.add(water);
+const breakingLip=createBreakerLip(THREE,scene);
 
 // A thin transparent swash reaches above the beach edge, and advances then
 // retreats. The motion is drawn on the actual curved coastline (not a PNG).
@@ -613,6 +615,7 @@ function animate(){requestAnimationFrame(animate);
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}
  waveUniforms.uTime.value=elapsed;
  surfSpray.update(elapsed,waveHeight);
+ breakingLip.update(elapsed,waveHeight,daylight(hours));
  gulls.update(elapsed);
  oceanAudio.update(elapsed,waveHeight,paused);
  waveUniforms.uWave.value=waveHeight;
