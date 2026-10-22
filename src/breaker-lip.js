@@ -61,6 +61,7 @@ export const breakerLipFragmentShader = `
 uniform float uTime;
 uniform float uWave;
 uniform float uDay;
+uniform float uFoam;
 varying vec2 vUv;
 varying float vLife;
 varying float vStrength;
@@ -80,7 +81,7 @@ void main(){
  float edge=clamp(dome*(.38+.45*breakSections+.17*smaller),0.,1.);
  vec3 water=vec3(.48,.86,.83),bright=vec3(.97,1.,.985);
  vec3 color=mix(water,bright,pow(dome,.5)*(.68+.32*breakSections));
- float alpha=clamp(edge*(.68+.18*uWave)*vLife*vStrength,0.,.88);
+ float alpha=clamp(edge*(.68+.18*uWave)*vLife*vStrength*uFoam,0.,.92);
  gl_FragColor=vec4(color*(.82+.18*uDay),alpha);
 }`;
 
@@ -122,7 +123,7 @@ export function createBreakerLip(THREE,scene) {
   geo.setIndex(indices);
   const mat=new THREE.ShaderMaterial({
     transparent:true,depthWrite:false,side:THREE.DoubleSide,
-    uniforms:{uTime:{value:0},uWave:{value:.6},uDay:{value:1}},
+    uniforms:{uTime:{value:0},uWave:{value:.6},uDay:{value:1},uFoam:{value:1}},
     vertexShader:breakerLipVertexShader,
     fragmentShader:breakerLipFragmentShader
   });
@@ -130,10 +131,11 @@ export function createBreakerLip(THREE,scene) {
   mesh.frustumCulled=false;
   mesh.renderOrder=5;
   scene.add(mesh);
-  function update(time,wave,day=1){
+  function update(time,wave,day=1,foam=1){
     mat.uniforms.uTime.value=time;
     mat.uniforms.uWave.value=wave;
     mat.uniforms.uDay.value=day;
+    mat.uniforms.uFoam.value=foam;
   }
   update(0,.6,1);
   return {mesh,update,vertexCount:count,

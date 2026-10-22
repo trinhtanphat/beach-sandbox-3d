@@ -49,10 +49,11 @@ void main(){
 
 export const sprayFragmentShader = `
 uniform sampler2D uMap;
+uniform float uFoam;
 varying float vLife;
 void main(){
   vec4 foam=texture2D(uMap,gl_PointCoord);
-  foam.a*=vLife*.85;
+  foam.a*=vLife*.85*uFoam;
   if(foam.a<.018)discard;
   gl_FragColor=foam;
 }`;
@@ -104,7 +105,7 @@ export function createSurfSpray(THREE,scene) {
   foamTexture.minFilter=THREE.LinearFilter;
   foamTexture.needsUpdate=true;
   const material=new THREE.ShaderMaterial({
-    uniforms:{uMap:{value:foamTexture},uTime:{value:0},uWave:{value:.6}},
+    uniforms:{uMap:{value:foamTexture},uTime:{value:0},uWave:{value:.6},uFoam:{value:1}},
     vertexShader:sprayVertexShader,
     fragmentShader:sprayFragmentShader,
     transparent:true,depthWrite:false
@@ -113,9 +114,10 @@ export function createSurfSpray(THREE,scene) {
   points.frustumCulled=false;
   points.renderOrder=7;
   scene.add(points);
-  function update(time,strength){
+  function update(time,strength,foam=1){
     material.uniforms.uTime.value=time;
     material.uniforms.uWave.value=strength;
+    material.uniforms.uFoam.value=foam;
   }
   update(0,.6);
   return {points,update,count:SPRAY_PARTICLES,

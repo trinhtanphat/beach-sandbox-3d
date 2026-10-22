@@ -88,6 +88,7 @@ export const oceanFragmentShader = `
 uniform float uTime;
 uniform float uWave;
 uniform float uDay;
+uniform float uFoam;
 varying vec2 vUv;
 varying float vRise;
 varying float vWash;
@@ -143,9 +144,11 @@ void main(){
   float lifeB=smoothstep(0.,.12,cycleB)*(1.-smoothstep(.77,1.,cycleB));
   float foamA=surfSheet(uv.x,frontA,strand)*lifeA;
   float foamB=surfSheet(uv.x,frontB,micro)*.43*lifeB;
-  float foam=clamp(foamA+foamB,0.,1.);
+  // Low-frequency turbulence opens irregular gaps and softens the white edge.
+  float breakSection=snoise(uv*vec2(21.,83.)+vec2(uTime*.11,-uTime*.09));
+  float foam=clamp((foamA+foamB)*(.66+.52*breakSection),0.,1.);
   float shorewash=(1.-smoothstep(.008,.030,uv.x))*(.25+.10*snoise(uv*vec2(20.,61.)+uTime));
-  foam=clamp((foam+shorewash)*(.46+.54*clamp(uWave/.8,0.,1.5)),0.,1.);
+  foam=clamp((foam+shorewash)*(.46+.54*clamp(uWave/.8,0.,1.5))*uFoam,0.,1.);
   sea=mix(sea,vec3(.97,1.,.99),foam*.98);
   float spec=pow(max(0.,sin(uv.x*195.+uTime*1.8)*sin(uv.y*220.-uTime)),24.);
   sea+=vec3(.26,.30,.21)*spec*uDay*(1.-foam);
@@ -167,6 +170,7 @@ export const swashFragmentShader = `
 uniform float uTime;
 uniform float uWave;
 uniform float uDay;
+uniform float uFoam;
 varying vec2 vUv;
 float hash21(vec2 p){
   p=fract(p*vec2(234.34,435.345));
@@ -208,6 +212,7 @@ void main(){
   float retreatFade=1.-smoothstep(.75,.99,phase);
   alpha+=wetFilm*.15*retreatFade;
   alpha*=smoothstep(.008,.050,vUv.x)*(1.-smoothstep(.975,1.,vUv.x));
+  alpha*=uFoam;
   vec3 foamColor=mix(vec3(.32,.72,.69),vec3(.98,1.,.97),
                       clamp(max(white*.96,lingering*.88)+bubbles*.28,0.,1.));
   gl_FragColor=vec4(foamColor*(.75+.25*uDay),clamp(alpha*(.82+.18*uWave),0.,.94));
