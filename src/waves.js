@@ -224,39 +224,27 @@ void main(){
  * Raised advancing swash ridge: a shallow, short-lived 3D surface bulge.
  * Deposited wet sand stays flat while the water retreats.
  */
-export function swashCrestHeight(time, alongShore=0, x=.5, strength=.6) {
-  const phase=swashPhase(time,alongShore);
-  const wave=clamp(strength,.1,1.6);
-  const front=runupPosition(time,alongShore,wave);
-  const lip=Math.exp(-Math.pow((x-front)/.045,2));
-  const life=ease(phase/.10)*(1-ease((phase-.64)/.22));
-  return .05*wave*lip*life;
+// CPU equivalent of the shared GLSL warped swash front.
+const frac=n=>n-Math.floor(n);
+function swashHash(x,y) {
+  let px=frac(x*234.34),py=frac(y*435.345);
+  const dot=px*(px+23.45)+py*(py+23.45);
+  px+=dot;py+=dot;
+  return frac(px*py);
 }
-export const swashVertexShader = `
-uniform float uTime;
-uniform float uWave;
-varying vec2 vUv;
-void main(){
-  vUv=uv;
-  vec3 p=position;
-  float phase=fract(uTime*.23+.23+sin(uv.y*9.+.3)*.027+uv.y*.012);
-  float run=.38+.26*clamp(uWave/1.6,0.,1.);
-  float attack=smoothstep(0.,.65,phase);
-  float retreat=smoothstep(.65,1.,phase);
-  float wet=phase<.65?attack:1.-retreat;
-  float front=.84-run*wet;
-  float life=smoothstep(0.,.10,phase)*(1.-smoothstep(.64,.86,phase));
-  float ridge=exp(-pow((uv.x-front)/.045,2.));
-  p.y+=.05*clamp(uWave,.1,1.6)*ridge*life;
-  p.x+=.010*sin(uv.y*42.+uTime*.48);
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
-}`;
-export const swashFragmentShader = `
-uniform float uTime;
-uniform float uWave;
-uniform float uDay;
-uniform float uFoam;
-varying vec2 vUv;
+function swashNoise(x,y){
+  const ix=Math.floor(x),iy=Math.floor(y);
+  const fx=ease(frac(x)),fy=ease(frac(y));
+  const a=swashHash(ix,iy)*(1-fx)+swashHash(ix+1,iy)*fx;
+  const b=swashHash(ix,iy+1)*(1-fx)+swashHash(ix+1,iy+1)*fx;
+  return a*(1-fy)+b*fy;
+}
+export function swashFrontWarp(time,alongShore=0,across=.5){
+  const turn=2*Math.PI*SURF_CYCLE_RATE*time;
+  const lace=swashNoise(across*11+.17*Math.sin(turn),alongShore*80+.15*Math.cos(turn));
+  return .017*(lace-.5)+.008*Math.sin(alongShore*119+turn);
+}
+export const swashNoiseGLSL = `
 float hash21(vec2 p){
   p=fract(p*vec2(234.34,435.345));
   p+=dot(p,p+23.45);
@@ -267,6 +255,47 @@ float snoise(vec2 p){
   return mix(mix(hash21(i),hash21(i+vec2(1.,0.)),f.x),
              mix(hash21(i+vec2(0.,1.)),hash21(i+vec2(1.,1.)),f.x),f.y);
 }
+float swashFrontWarp(vec2 uv,float t){
+  float turn=t*1.44513262;
+  float lace=snoise(uv*vec2(11.,80.)+vec2(.17*sin(turn),.15*cos(turn)));
+  return .017*(lace-.5)+.008*sin(uv.y*119.+turn);
+}
+`;
+export function swashCrestHeight(time, alongShore=0, x=.5, strength=.6) {
+  const phase=swashPhase(time,alongShore);
+  const wave=clamp(strength,.1,1.6);
+  const front=runupPosition(time,alongShore,wave)+swashFrontWarp(time,alongShore,x);
+  const lip=Math.exp(-Math.pow((x-front)/.045,2));
+  const life=ease(phase/.10)*(1-ease((phase-.64)/.22));
+  return .05*wave*lip*life;
+}
+export const swashVertexShader = `
+uniform float uTime;
+uniform float uWave;
+varying vec2 vUv;
+${swashNoiseGLSL}
+void main(){
+  vUv=uv;
+  vec3 p=position;
+  float phase=fract(uTime*.23+.23+sin(uv.y*9.+.3)*.027+uv.y*.012);
+  float run=.38+.26*clamp(uWave/1.6,0.,1.);
+  float attack=smoothstep(0.,.65,phase);
+  float retreat=smoothstep(.65,1.,phase);
+  float wet=phase<.65?attack:1.-retreat;
+  float front=.84-run*wet+swashFrontWarp(uv,uTime);
+  float life=smoothstep(0.,.10,phase)*(1.-smoothstep(.64,.86,phase));
+  float ridge=exp(-pow((uv.x-front)/.045,2.));
+  p.y+=.05*clamp(uWave,.1,1.6)*ridge*life;
+  // Geometry remains anchored; UV foam and raised ridge share one shoreline.
+  gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
+}`;
+export const swashFragmentShader = `
+uniform float uTime;
+uniform float uWave;
+uniform float uDay;
+uniform float uFoam;
+varying vec2 vUv;
+${swashNoiseGLSL}
 void main(){
   // The swash's advance starts when the offshore crest enters shallow water.
   float phase=fract(uTime*.23+.23+sin(vUv.y*9.+.3)*.027+vUv.y*.012);
@@ -279,7 +308,7 @@ void main(){
   float wet=phase<.65?attack:1.-retreat;
   float front=.84-run*wet;
   float lace=snoise(vUv*vec2(11.,80.)+vec2(uTime*.21,-uTime*.19));
-  front+=.017*(lace-.5)+.008*sin(vUv.y*119.+uTime*.45);
+  front+=swashFrontWarp(vUv,uTime);
   float d=vUv.x-front;
   // Foam is thick at the advancing front and breaks into lace behind it.
   float advancing=1.-smoothstep(.64,.86,phase);
