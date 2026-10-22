@@ -7,7 +7,10 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v2**: shoreward-travelling wave trains, shallow-water crest steepening, turbulent breaking foam, sunlight caustics, run-up and retreating swash generated in GLSL. No static water background, external textures or paid assets.
+- **Animated surf v3**: layered whitewater breakers, foamy swash, sparkling caustics, reef shadows, shoaling swell, tide run-up and retreat generated in GLSL. No static water background, external textures or paid assets.
+- **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
+- **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
+- **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
 - **Continuous coastal bathymetry**: sea floor now joins the beach without a vertical seam; surf overlays the sloped shore.
 - Editor raycasts against the actual terrain surface. Placed trees and rocks, and the instanced forest canopy/trunks, follow deformed land when sculpting ends.
 - Browser-local Save / Load for full island terrain, added objects and sim controls. Portable JSON Export / Import works between devices; screenshot export to PNG. No backend or account required.
@@ -16,6 +19,10 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 - Orbit, zoom, build sand, dig, rake, plant a tree, add rocks, launch a boat, erase, undo and reset.
 - Desktop/mobile adaptive UI: on phones, the tool palette collapses into a compact Tools button to keep the island visible; keyboard shortcuts 1–8, Space and Ctrl+Z remain available on desktop.
 - Repeatable terrain/vegetation generation with deterministic randomness.
+
+## Public demo
+
+Cloudflare Worker: [beach.qs3d.site](https://beach.qs3d.site/) — independent static Worker deployment, no project DB or API credentials. Preview staging remains [shoreline-sandbox-3d-stage.hikvision.workers.dev](https://shoreline-sandbox-3d-stage.hikvision.workers.dev/).
 
 ## Quickstart
 
@@ -39,13 +46,15 @@ npm run preview
 - `src/main.js` — procedural terrain and vegetation generation, 3D object placement, island editing, playback controls.
 - `src/waves.js` — ocean and swash GLSL shaders, deterministic wave-front/run-up model used by tests.
 - `src/island-state.js` — versioned, bounded save format with validation and round-trip tests.
+- `src/ambience.js` — deterministic seagull animation and gesture-triggered synthesized surf/chirp Web Audio.
+- `src/reefs.js` — GPU-instanced coral and reef rocks.
 - `scripts/visual-smoke.mjs` — optional real-browser screenshot, JS-error and frame-timing verification using Playwright.
 - `scripts/build-preview-worker.mjs` — package Vite dist into an isolated, compressed Workers staging module. Does not deploy by itself.
 - `src/style.css` — UI and responsive layout.
 
 ## Performance and security
 
-- Trees, background rocks and shells use GPU instancing (reducing hundreds of draw calls to a handful); water is one combined indexed mesh, pixel ratio is capped at 1.45, and the shadow map is 1024×1024.
+- Trees, seabirds, underwater reefs, background rocks and shells use GPU instancing (reducing hundreds of draw calls to a handful); water is one combined indexed mesh. DPR is capped at 1.65 on desktop and 1.35 on mobile, and the shadow map is 1024×1024.
 - Scene generation is local to the browser; no login, tracking, backend or uploaded assets.
 - A machine without a GPU can host the Vite dev server or built static files; GPU rendering happens on the viewer's browser/device.
 
