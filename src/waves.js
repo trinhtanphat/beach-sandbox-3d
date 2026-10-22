@@ -27,6 +27,17 @@ export function runupPosition(time, alongShore = 0, strength = .6) {
   const wet=p<.65?ease(p/.65):1-ease((p-.65)/.35);
   return .84-run*wet;
 }
+export function exposedSandBand(time, alongShore=0, x=.5, strength=.6) {
+  // During withdrawal, sand is exposed INLAND of the retreating waterline,
+  // but beyond the furthest reach of the preceding advancing wave.
+  const phase=swashPhase(time,alongShore);
+  const run=.38+.26*clamp(strength,.1,1.6)/1.6;
+  const maximumReach=.84-run;
+  const retreatingFront=runupPosition(time,alongShore,strength);
+  const exposed=ease((x-maximumReach+.018)/.058)*(1-ease((x-retreatingFront+.05)/.08));
+  const withdrawing=ease((phase-.64)/.08)*(1-ease((phase-.92)/.07));
+  return clamp(exposed*withdrawing,0,1);
+}
 export function breakerPhase(time, alongShore=0, shift=0) {
   const raw=time*SURF_CYCLE_RATE + Math.sin(alongShore*9+.3)*.027
     + alongShore*.012+shift;
@@ -261,13 +272,24 @@ void main(){
   float foamAlpha=white*(.79+.18*bubbles)+tail*(bubbles*.27+spray*.16);
   foamAlpha+=lingering*(.18+.29*bubbles)*(.40+.60*wet);
   foamAlpha+=tail*laceBands*softBreak*.12;
-  // Thin clear water film after crest passage darkens sand without an opaque
-  // cyan rectangle. Fade the whole film as the breaker drains.
-  float wetFilm=smoothstep(front-.015,front+.09,vUv.x)
-                 *(1.-smoothstep(front+.26,front+.42,vUv.x));
-  float retreatFade=1.-smoothstep(.75,.99,phase);
-  // Wet sand must persist even at minimum foam intensity: it is not whitewater.
-  float wetAlpha=wetFilm*.21*retreatFade;
+  // The retracting front exposes previously submerged sand on its INLAND
+  // side, between maximum run-up and the new shoreline. During the advancing
+  // portion there must be no large trailing patch of exposed wet sand.
+  float maximumReach=.84-run;
+  float exposed=smoothstep(maximumReach-.018,maximumReach+.04,vUv.x)
+               *(1.-smoothstep(front-.05,front+.03,vUv.x));
+  float withdrawing=smoothstep(.64,.72,phase)*(1.-smoothstep(.92,.99,phase));
+  float wetAlpha=.32*exposed*withdrawing;
+  // A thin clear film follows the water on the seaward side of the active lip.
+  float clearFilm=smoothstep(front-.015,front+.04,vUv.x)
+                 *(1.-smoothstep(front+.17,front+.31,vUv.x));
+  wetAlpha+=clearFilm*.05;
+  // Retreating water leaves moving, discontinuous lace lines that travel
+  // seaward rather than a static white line drawn on the sand.
+  float backwashLines=pow(max(0.,sin(vUv.x*127.-uTime*7.4+lace*6.)),13.);
+  float backwashScatter=smoothstep(.32,.73,snoise(vUv*vec2(47.,114.)
+                                     +vec2(-uTime*.21,uTime*.09)));
+  foamAlpha+=backwashLines*backwashScatter*exposed*withdrawing*.16;
   float shoreFade=smoothstep(.008,.050,vUv.x)*(1.-smoothstep(.975,1.,vUv.x));
   foamAlpha*=uFoam*shoreFade;
   wetAlpha*=shoreFade;

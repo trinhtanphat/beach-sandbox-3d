@@ -28,7 +28,7 @@ test('wet shore advances and retreats at same phase as shader',()=>{
  }
 });
 test('wet sand film remains independent of whitewater intensity',()=>{
- assert.match(swashFragmentShader,/float wetAlpha=wetFilm/);
+ assert.match(swashFragmentShader,/float wetAlpha=\.32\*exposed\*withdrawing/);
  assert.match(swashFragmentShader,/foamAlpha\*=uFoam\*shoreFade/);
  assert.match(swashFragmentShader,/wetAlpha\*=shoreFade/);
  assert.doesNotMatch(swashFragmentShader,/wetAlpha\*=uFoam/);

@@ -40,7 +40,7 @@ test('both shaders describe the same physical breaker timing',()=>{
  assert.match(oceanFragmentShader,/back/);
  assert.match(oceanFragmentShader,/whitewater|Whitewater/i);
  assert.match(swashFragmentShader,/retreat/);
- assert.match(swashFragmentShader,/wetFilm/);
+ assert.match(swashFragmentShader,/(exposed|clearFilm)/);
  assert.match(swashVertexShader,/uTime/);
 });
 
