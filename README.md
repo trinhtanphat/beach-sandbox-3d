@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v6**: two shoreward-moving swells drive a raised **curling foam-lip mesh** following the curved beach. Each crest fades smoothly into existence offshore and dissolves near the shoreline, eliminating abrupt animation-cycle jumps. Water elevation, wave foam, curl height and 460 soft round spray droplets share one lifecycle. Continuous foam noise reduces jagged sparkles, while beach whitewash travels with the swash rather than forming a stationary stripe. Not a CFD fluid simulation.
+- **Animated surf v7**: the shore-following curling breaker (2,010 vertices) and 460 circular foam particles are now animated entirely in GPU vertex shaders, not rewritten/uploaded by JavaScript every frame. Lifecycles, whitewash, sunlight caustics and dynamic wave height are preserved. Ocean motion is still an artistic WebGL simulation, not a CFD fluid solver.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
@@ -45,8 +45,8 @@ npm run preview
 - `src/simulation.js` — small deterministic geometry/math API, tested with Node's test runner.
 - `src/main.js` — procedural terrain and vegetation generation, 3D object placement, island editing, playback controls.
 - `src/waves.js` — ocean/swash GLSL shaders sharing a wave-cycle model, repeatable breaker-front and swash run-up/retreat.
-- `src/surf-spray.js` — batched, soft-edged foam droplets generated from an in-memory 32×32 alpha texture, riding the shoreline breaker.
-- `src/breaker-lip.js` — dynamically tessellated curling whitewater crest with the same shore-relative wavefront phase as the ocean shader.
+- `src/surf-spray.js` — 460 GPU-animated soft-edged foam droplets generated from a procedural 32×32 alpha texture; static coast anchors and random seeds, time/wave uniforms only at runtime.
+- `src/breaker-lip.js` — GPU vertex shader curls a static 200×9 tessellated coastline crest using stored coast anchors and offshore widths; no per-frame vertex array upload.
 - `src/island-state.js` — versioned, bounded save format with validation and round-trip tests.
 - `src/ambience.js` — deterministic seagull animation and gesture-triggered synthesized surf/chirp Web Audio.
 - `src/reefs.js` — GPU-instanced coral and reef rocks.
@@ -56,7 +56,7 @@ npm run preview
 
 ## Performance and security
 
-- Trees, seabirds, underwater reefs, background rocks and shells use GPU instancing (reducing hundreds of draw calls to a handful); water is one combined indexed mesh. DPR starts at up to 1.65 on desktop or 1.35 on mobile, and adapts downward only after sustained low FPS, gradually returning to full sharpness if FPS recovers. Shadow map is 1024×1024.
+- Trees, seabirds, underwater reefs, background rocks and shells use GPU instancing (reducing hundreds of draw calls to a handful); ocean is one indexed mesh and the foam lip and spray use static buffers with GPU vertex animation. DPR starts at up to 1.65 on desktop or 1.35 on mobile, and adapts downward only after sustained low FPS, gradually returning to full sharpness if FPS recovers. Shadow map is 1024×1024.
 - Scene generation is local to the browser; no login, tracking, backend or uploaded assets.
 - A machine without a GPU can host the Vite dev server or built static files; GPU rendering happens on the viewer's browser/device.
 
