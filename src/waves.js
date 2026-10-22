@@ -244,6 +244,23 @@ export function swashFrontWarp(time,alongShore=0,across=.5){
   const lace=swashNoise(across*11+.17*Math.sin(turn),alongShore*80+.15*Math.cos(turn));
   return .017*(lace-.5)+.008*Math.sin(alongShore*119+turn);
 }
+/**
+ * Thin branches of aerated foam left on newly uncovered sand.
+ * The streaks are strongest mid-withdrawal and disappear before a new swell.
+ * Values use the same periodic swash and spatial phase as the GPU.
+ */
+export function backwashRivulet(time,alongShore=.5,across=.5,strength=.6){
+  const phase=swashPhase(time,alongShore);
+  const wave=clamp(strength,.1,1.6);
+  const maximumReach=.84-(.38+.26*wave/1.6);
+  const front=runupPosition(time,alongShore,wave)+swashFrontWarp(time,alongShore,across);
+  const exposed=ease((across-maximumReach+.018)/.058)*(1-ease((across-front+.05)/.08));
+  const withdrawing=ease((phase-.64)/.08)*(1-ease((phase-.92)/.07));
+  const turn=2*Math.PI*SURF_CYCLE_RATE*time;
+  const split=Math.sin(alongShore*63+turn)*.34;
+  const stream=Math.max(0,Math.sin(alongShore*117+split+across*15-turn*2))**14;
+  return .23*stream*exposed*withdrawing;
+}
 export const swashNoiseGLSL = `
 float hash21(vec2 p){
   p=fract(p*vec2(234.34,435.345));
@@ -341,6 +358,13 @@ void main(){
   float backwashScatter=smoothstep(.32,.73,snoise(vUv*vec2(47.,114.)
                                      +vec2(-uTime*.21,uTime*.09)));
   foamAlpha+=backwashLines*backwashScatter*exposed*withdrawing*.16;
+  // Narrow branching rivulets drain toward the sea while the former
+  // maximum runup remains visibly wet. They vanish before the next crest.
+  float turn=uTime*1.44513262;
+  float split=sin(vUv.y*63.+turn)*.34;
+  float streams=pow(max(0.,sin(vUv.y*117.+split+vUv.x*15.-turn*2.)),14.);
+  float rivulets=.23*streams*exposed*withdrawing;
+  foamAlpha+=rivulets;
   float shoreFade=smoothstep(.008,.050,vUv.x)*(1.-smoothstep(.975,1.,vUv.x));
   foamAlpha*=uFoam*shoreFade;
   wetAlpha*=shoreFade;

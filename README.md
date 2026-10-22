@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v18**: the 460 GPU foam particles now use **four distinct irregular bubble-cluster silhouettes** from a deterministic 64×64, 2×2 RGBA texture atlas, replacing identical soft circular sprites. Foam droplets still follow both staggered breaking-wave trains; the change adds no WebGL draw calls, network image requests or per-frame geometry uploads. The v17 adaptive DPR and opt-in `/?perf=1` diagnostics remain. This is a stylized procedural surf simulation, not CFD.
+- **Animated surf v19**: adds narrow, branching **backwash foam rivulets** over the sand just exposed by retreating waves. Their position is tied to the moving waterline and the furthest run-up, and their animation is exactly periodic at the swell-cycle boundary. The four organic foam particle shapes, two curling 3D breakers, wet-sand shading and adaptive DPR remain. This is stylized shader water, not physical CFD.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
