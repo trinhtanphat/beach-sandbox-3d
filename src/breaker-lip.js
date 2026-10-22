@@ -1,51 +1,59 @@
 /**
- * GPU-backed foam crest mesh: coastline is sampled only once on creation.
- * Continuous wave motion now happens in the vertex shader instead of
- * rewriting ~2,010 vertex coordinates in JavaScript every frame.
+ * Twin GPU breaker lips: one continuous draw call, no per-frame CPU geometry.
+ * Offshore swells form two offset wave trains with naturally curved fronts.
  */
 import { DEPTH, HALF_DEPTH, HALF_WIDTH, shoreline, clamp } from './simulation.js';
-import { breakerPosition, breakerPhase, waveEnvelope } from './waves.js';
+import { breakerPhase, frontWarp, waveEnvelope } from './waves.js';
 
-export const LIP_ROWS = 200;
-export const LIP_COLS = 9;
-export const LIP_BASE_Y = .104;
+export const LIP_ROWS=200;
+export const LIP_COLS=9;
+export const LIP_TRAINS=2;
+export const LIP_BASE_Y=.104;
 
-export function lipSample(time,z,across=.5,wave=.6) {
+export function lipSample(time,z,across=.5,wave=.6,shift=0) {
   const v=(z+HALF_DEPTH)/DEPTH;
   const coast=shoreline(z)-.1;
   const offshoreWidth=HALF_WIDTH+.06-coast;
-  const phase=breakerPosition(time,v)
-    +.005*Math.sin(v*64+time*.6)+.004*Math.sin(v*151-time*.47);
+  const phase=.34-.33*breakerPhase(time,v,shift)+frontWarp(time,v);
   const amp=clamp(wave,.1,1.6);
-  const life=waveEnvelope(breakerPhase(time,v));
-  const span=.10+.075*amp;
+  const life=waveEnvelope(breakerPhase(time,v,shift));
+  const strength=shift>.1?.68:1;
+  const span=(.10+.075*amp)*(.78+.22*strength);
   const rise=Math.pow(Math.max(0,Math.sin(Math.PI*across)),1.75);
   const irregular=.78+.22*Math.sin(v*47+time*.89)*Math.sin(v*19-time*.4);
-  const x=coast+offshoreWidth*phase+(across-.5)*span-.037*rise*amp;
-  const y=LIP_BASE_Y+(.018+(.20*rise*irregular))*amp*life;
-  return {x,y,z,phase,foam:rise*life,life};
+  const x=coast+offshoreWidth*phase+(across-.5)*span-.037*rise*amp*strength;
+  const y=LIP_BASE_Y+(.018+(.20*rise*irregular))*amp*life*strength;
+  return {x,y,z,phase,foam:rise*life*strength,life};
 }
 
 export const breakerLipVertexShader = `
+attribute float aWaterWidth;
+attribute float aPhaseShift;
+attribute float aStrength;
 uniform float uTime;
 uniform float uWave;
-attribute float aWaterWidth;
 varying vec2 vUv;
+varying float vLife;
+varying float vStrength;
 void main(){
   vUv=uv;
   float v=uv.y;
-  float cycle=fract(uTime*.23+sin(v*9.+.3)*.027+v*.012);
+  float cycle=fract(uTime*.23+sin(v*9.+.3)*.027+v*.012+aPhaseShift);
   float front=.34-.33*cycle
-      +.005*sin(v*64.+uTime*.6)+.004*sin(v*151.-uTime*.47);
+    +.016*sin(v*22.+uTime*1.44513262)
+    +.007*sin(v*49.-uTime*2.89026524)
+    +.004*sin(v*94.+uTime*4.33539786);
   float life=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle));
+  vLife=life;
+  vStrength=aStrength;
   float wave=clamp(uWave,.1,1.6);
   float across=uv.x;
-  float span=.10+.075*wave;
+  float span=(.10+.075*wave)*(.78+.22*aStrength);
   float rise=pow(max(0.,sin(3.14159265*across)),1.75);
   float irregular=.78+.22*sin(v*47.+uTime*.89)*sin(v*19.-uTime*.4);
   vec3 p=position;
-  p.x+=aWaterWidth*front+(across-.5)*span-.037*rise*wave;
-  p.y=.104+(.018+(.20*rise*irregular))*wave*life;
+  p.x+=aWaterWidth*front+(across-.5)*span-.037*rise*wave*aStrength;
+  p.y=.104+(.018+(.20*rise*irregular))*wave*life*aStrength;
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
 }`;
 
@@ -54,6 +62,8 @@ uniform float uTime;
 uniform float uWave;
 uniform float uDay;
 varying vec2 vUv;
+varying float vLife;
+varying float vStrength;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise2(vec2 p){
  vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
@@ -63,40 +73,43 @@ float noise2(vec2 p){
 void main(){
  float across=vUv.x;
  float dome=pow(max(0.,sin(3.14159265*across)),.8);
- float lace=noise2(vUv*vec2(9.,98.)+vec2(uTime*.21,uTime*.15));
- float smaller=noise2(vUv*vec2(18.,175.)+vec2(-uTime*.25,uTime*.29));
- float edge=clamp(dome*(.64+.26*lace+.10*smaller),0.,1.);
- float phase=fract(uTime*.23+sin(vUv.y*9.+.3)*.027+vUv.y*.012);
- float fadeIn=smoothstep(0.,.12,phase);
- float fadeOut=1.-smoothstep(.77,1.,phase);
- float shoreFade=fadeIn*fadeOut;
- vec3 water=vec3(.48,.86,.83),bright=vec3(.96,1.,.985);
- vec3 color=mix(water,bright,pow(dome,.45));
- float alpha=clamp(edge*(.66+.19*uWave)*shoreFade,0.,.87);
+ // Waves break in softly scalloped sections rather than a hard white ribbon.
+ float lace=noise2(vUv*vec2(7.,60.)+vec2(uTime*.16,uTime*.10));
+ float smaller=noise2(vUv*vec2(19.,169.)+vec2(-uTime*.25,uTime*.29));
+ float breakSections=smoothstep(.20,.73,lace);
+ float edge=clamp(dome*(.38+.45*breakSections+.17*smaller),0.,1.);
+ vec3 water=vec3(.48,.86,.83),bright=vec3(.97,1.,.985);
+ vec3 color=mix(water,bright,pow(dome,.5)*(.68+.32*breakSections));
+ float alpha=clamp(edge*(.68+.18*uWave)*vLife*vStrength,0.,.88);
  gl_FragColor=vec4(color*(.82+.18*uDay),alpha);
 }`;
 
 export function createBreakerLip(THREE,scene) {
-  const count=(LIP_ROWS+1)*(LIP_COLS+1);
+  const perTrain=(LIP_ROWS+1)*(LIP_COLS+1);
+  const count=perTrain*LIP_TRAINS;
   const vertices=new Float32Array(count*3);
   const uvs=new Float32Array(count*2);
   const widths=new Float32Array(count);
+  const shifts=new Float32Array(count);
+  const strengths=new Float32Array(count);
   const indices=[];
-  for(let row=0;row<=LIP_ROWS;row++){
-    const z=-HALF_DEPTH+row/LIP_ROWS*DEPTH;
-    const coast=shoreline(z)-.1;
-    const offshoreWidth=HALF_WIDTH+.06-coast;
-    for(let col=0;col<=LIP_COLS;col++){
-      const i=row*(LIP_COLS+1)+col;
-      vertices[i*3]=coast;
-      vertices[i*3+1]=LIP_BASE_Y;
-      vertices[i*3+2]=z;
-      uvs[i*2]=col/LIP_COLS;
-      uvs[i*2+1]=row/LIP_ROWS;
-      widths[i]=offshoreWidth;
-      if(row<LIP_ROWS&&col<LIP_COLS){
-        const a=i,b=a+LIP_COLS+1;
-        indices.push(a,b,a+1,b,b+1,a+1);
+  for(let train=0;train<LIP_TRAINS;train++){
+    for(let row=0;row<=LIP_ROWS;row++){
+      const z=-HALF_DEPTH+row/LIP_ROWS*DEPTH;
+      const coast=shoreline(z)-.1;
+      const offshoreWidth=HALF_WIDTH+.06-coast;
+      for(let col=0;col<=LIP_COLS;col++){
+        const local=row*(LIP_COLS+1)+col;
+        const i=train*perTrain+local;
+        vertices[i*3]=coast; vertices[i*3+1]=LIP_BASE_Y;vertices[i*3+2]=z;
+        uvs[i*2]=col/LIP_COLS;uvs[i*2+1]=row/LIP_ROWS;
+        widths[i]=offshoreWidth;
+        shifts[i]=train===0?0:.56;
+        strengths[i]=train===0?1:.68;
+        if(row<LIP_ROWS&&col<LIP_COLS){
+          const a=i,b=a+LIP_COLS+1;
+          indices.push(a,b,a+1,b,b+1,a+1);
+        }
       }
     }
   }
@@ -104,6 +117,8 @@ export function createBreakerLip(THREE,scene) {
   geo.setAttribute('position',new THREE.BufferAttribute(vertices,3));
   geo.setAttribute('uv',new THREE.BufferAttribute(uvs,2));
   geo.setAttribute('aWaterWidth',new THREE.BufferAttribute(widths,1));
+  geo.setAttribute('aPhaseShift',new THREE.BufferAttribute(shifts,1));
+  geo.setAttribute('aStrength',new THREE.BufferAttribute(strengths,1));
   geo.setIndex(indices);
   const mat=new THREE.ShaderMaterial({
     transparent:true,depthWrite:false,side:THREE.DoubleSide,
@@ -112,7 +127,7 @@ export function createBreakerLip(THREE,scene) {
     fragmentShader:breakerLipFragmentShader
   });
   const mesh=new THREE.Mesh(geo,mat);
-  mesh.frustumCulled=false; // animated offset extends beyond the rest bounding box
+  mesh.frustumCulled=false;
   mesh.renderOrder=5;
   scene.add(mesh);
   function update(time,wave,day=1){
