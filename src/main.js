@@ -6,6 +6,7 @@ import { createSnapshot, parseSnapshot, SAVE_KEY } from './island-state.js';
 import { BIRD_COUNT, createSeagulls, createOceanAudio } from './ambience.js';
 import { makeReefField } from './reefs.js';
 import { createPalmGrove } from './palms.js';
+import { createSurfSpray } from './surf-spray.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
@@ -126,7 +127,7 @@ for(let row=0;row<=SEA_ROWS;row++) {
   for(let col=0;col<=SEA_STEPS;col++) {
     const u=col/SEA_STEPS;
     const x=coast+(HALF_WIDTH+.06-coast)*u;
-    seaPositions.push(x,.047,z);
+    seaPositions.push(x,.104,z);
     seaUV.push(u,row/SEA_ROWS);
     if(row<SEA_ROWS && col<SEA_STEPS) {
       const a=row*(SEA_STEPS+1)+col,b=a+SEA_STEPS+1;
@@ -152,14 +153,14 @@ scene.add(water);
 // A thin transparent swash reaches above the beach edge, and advances then
 // retreats. The motion is drawn on the actual curved coastline (not a PNG).
 const foamPositions=[],foamUV=[],foamIndices=[];
-const FOAM_ROWS=200,FOAM_COLS=8;
+const FOAM_ROWS=220,FOAM_COLS=32;
 for(let iz=0;iz<=FOAM_ROWS;iz++){
   const z=-HALF_DEPTH+iz/FOAM_ROWS*DEPTH;
   const coast=shoreline(z);
   for(let j=0;j<=FOAM_COLS;j++){
     const t=j/FOAM_COLS;
-    const x=coast-.86+t*1.25;
-    foamPositions.push(x,Math.max(.067,terrainHeight(x,z)+.022),z);
+    const x=coast-1.35+t*2.15;
+    foamPositions.push(x,Math.max(.119,terrainHeight(x,z)+.032),z);
     foamUV.push(t,iz/FOAM_ROWS);
     if(iz<FOAM_ROWS&&j<FOAM_COLS){const a=iz*(FOAM_COLS+1)+j,b=a+FOAM_COLS+1;foamIndices.push(a,a+1,b,b,a+1,b+1);}
   }
@@ -170,6 +171,7 @@ const foamMat=new THREE.ShaderMaterial({
   vertexShader:swashVertexShader,fragmentShader:swashFragmentShader
 });
 const foamMesh=new THREE.Mesh(foamGeo,foamMat);foamMesh.renderOrder=6;scene.add(foamMesh);
+const surfSpray=createSurfSpray(THREE,scene);
 
 const sandRockMaterial=new THREE.MeshStandardMaterial({color:'#95877a',roughness:1,flatShading:true});
 const underRockMaterial=new THREE.MeshStandardMaterial({color:'#747971',roughness:1,flatShading:true});
@@ -334,7 +336,7 @@ function syncFoamElevation(){
   const pos=foamGeo.attributes.position;
   for(let i=0;i<pos.count;i++){
     const x=pos.getX(i),z=pos.getZ(i);
-    pos.setY(i,Math.max(.067,editedHeight(x,z)+.022));
+    pos.setY(i,Math.max(.119,editedHeight(x,z)+.032));
   }
   pos.needsUpdate=true;
   foamGeo.computeBoundingSphere();
@@ -610,6 +612,7 @@ function animate(){requestAnimationFrame(animate);
  }
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}
  waveUniforms.uTime.value=elapsed;
+ surfSpray.update(elapsed,waveHeight);
  gulls.update(elapsed);
  oceanAudio.update(elapsed,waveHeight,paused);
  waveUniforms.uWave.value=waveHeight;
