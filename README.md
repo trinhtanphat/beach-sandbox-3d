@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v9**: two shore-following 3D breaker trains, soft low-frequency whitecap breakup and a separate **Whitewater foam** slider (30–180%) control the ocean crest, wet beach wash, curling lip and 460 foam droplets in sync. The new slider persists in Save/Load and portable island JSON, while version-1 saves without it still load with the 100% default. GPU vertex animation is retained; the sea is a stylized WebGL simulation, not CFD.
+- **Animated surf v10**: the shoreward wave trains still break into 3D foam and 460 GPU spray droplets, now with finer trailing whitewater streaks and a separate darkened **wet-sand film** after the wave retreats. Whitewater intensity (30–180%) adjusts white foam but does not incorrectly erase wet sand. The CPU run-up model matches the swash shader's longshore phase. Old portable island files remain compatible. This is stylized WebGL, not CFD.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
@@ -19,7 +19,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 - Orbit, zoom, build sand, dig, rake, plant a tree, add rocks, launch a boat, erase, undo and reset.
 - Desktop/mobile adaptive UI: on phones, the tool palette collapses into a compact Tools button to keep the island visible; keyboard shortcuts 1–8, Space and Ctrl+Z remain available on desktop.
 - Repeatable terrain/vegetation generation with deterministic randomness.
-- JavaScript code splitting keeps the ~41 kB application chunk separate from the ~511 kB cacheable Three.js vendor chunk (the vendor chunk still triggers Vite's non-blocking size warning).
+- JavaScript code splitting keeps the ~42 kB application chunk separate from the ~511 kB Three.js vendor chunk. The isolated Cloudflare Worker now caches content-hashed static assets for one year and makes HTML revalidate, with a self-test verifying exact decompressed bytes, HEAD, ETags, 404 and 405. The vendor chunk still triggers Vite's non-blocking size warning.
 
 ## Public demo
 
