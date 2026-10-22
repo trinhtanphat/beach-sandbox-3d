@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WIDTH, DEPTH, HALF_WIDTH, HALF_DEPTH, clamp, smoothstep, shoreline, landDistance, noise, terrainHeight, forestWeight, seededRandom, brushInfluence, daylight, clockLabel } from './simulation.js';
+import { oceanVertexShader, oceanFragmentShader, swashVertexShader, swashFragmentShader } from './waves.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
@@ -112,40 +113,7 @@ seaGeometry.computeVertexNormals();
 const waveUniforms={uTime:{value:0},uWave:{value:.6},uDay:{value:1}};
 const waterMaterial = new THREE.ShaderMaterial({
   uniforms:waveUniforms,side:THREE.DoubleSide,transparent:true,depthWrite:false,
-  vertexShader:`uniform float uTime; uniform float uWave;
-  varying vec2 vUv; varying vec3 vPos; varying float vCrest;
-  void main() {
-    vUv=uv; vec3 p=position;
-    float swell=sin(uv.x*33.0-uTime*2.5+uv.y*8.0)*.034;
-    float nearSurf=sin(uv.x*91.0-uTime*4.1+uv.y*10.0)*.014;
-    float oceanSwell=sin(uv.x*17.0+uv.y*25.0-uTime*1.6)*.023;
-    p.y+=(swell+nearSurf+oceanSwell)*uWave*(.5+exp(-uv.x*5.0)*.7);
-    vCrest=swell+nearSurf;
-    vPos=p;
-    gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
-  }`,
-  fragmentShader:`uniform float uTime;uniform float uWave;uniform float uDay;
-  varying vec2 vUv;varying vec3 vPos;varying float vCrest;
-  float line(vec2 p){return sin(p.x)*sin(p.y);}
-  void main(){
-    float shallow=1.0-smoothstep(.04,.94,vUv.x);
-    vec3 turquoise=vec3(.19,.89,.85);
-    vec3 cobalt=vec3(.015,.39,.51);
-    vec3 water=mix(cobalt,turquoise,pow(shallow,1.5));
-    float sunflicker=sin(vUv.x*83.0+vUv.y*48.0-uTime*2.7)*sin(vUv.x*61.0-vUv.y*75.0+uTime*1.8);
-    float caustic=pow(max(0.0,sunflicker),5.0)*(0.07+0.30*shallow);
-    water+=vec3(.34,.59,.37)*caustic;
-    float weave=sin(vUv.x*112.0-vUv.y*8.0-uTime*4.8+sin(vUv.y*30.0+uTime)*.8);
-    float rolling=pow(max(0.0,weave),10.0)*exp(-vUv.x*7.0);
-    float lace=pow(max(0.0,sin(vUv.x*239.0+vUv.y*46.0-uTime*5.5)),19.0)*exp(-vUv.x*15.0);
-    float whitewash=(1.0-smoothstep(0.0,.020,vUv.x))*(.43+.2*sin(uTime*2.9+vUv.y*37.0));
-    float foam=clamp((rolling*.76+lace*.65+whitewash)*(.5+uWave),0.0,.96);
-    water=mix(water,vec3(.96,1.0,.95),foam);
-    float sunGlitter=pow(max(0.0,sin(vUv.x*212.0+uTime)*sin(vUv.y*107.0-uTime*.8)),14.0)*.15;
-    water+=vec3(.40,.50,.45)*sunGlitter;
-    water*=.74+.26*uDay;
-    gl_FragColor=vec4(water,.90);
-  }`
+  vertexShader:oceanVertexShader,fragmentShader:oceanFragmentShader
 });
 const water = new THREE.Mesh(seaGeometry,waterMaterial);
 water.renderOrder = 4;
@@ -160,15 +128,17 @@ for(let iz=0;iz<=FOAM_ROWS;iz++){
   const coast=shoreline(z);
   for(let j=0;j<=FOAM_COLS;j++){
     const t=j/FOAM_COLS;
-    foamPositions.push(coast-.25+t*.55,.155,z);
+    const x=coast-.86+t*1.25;
+    foamPositions.push(x,Math.max(.067,terrainHeight(x,z)+.022),z);
     foamUV.push(t,iz/FOAM_ROWS);
     if(iz<FOAM_ROWS&&j<FOAM_COLS){const a=iz*(FOAM_COLS+1)+j,b=a+FOAM_COLS+1;foamIndices.push(a,a+1,b,b,a+1,b+1);}
   }
 }
 const foamGeo=new THREE.BufferGeometry();foamGeo.setAttribute('position',new THREE.Float32BufferAttribute(foamPositions,3));foamGeo.setAttribute('uv',new THREE.Float32BufferAttribute(foamUV,2));foamGeo.setIndex(foamIndices);
-const foamMat=new THREE.ShaderMaterial({uniforms:waveUniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide,
- vertexShader:`varying vec2 vUv;uniform float uTime;void main(){vUv=uv;vec3 p=position;p.x+=.075*sin(uTime*2.8+uv.y*22.0);gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
- fragmentShader:`varying vec2 vUv;uniform float uTime;uniform float uWave;void main(){float swell=sin(vUv.x*8.0+vUv.y*26.0-uTime*3.1);float band=1.0-smoothstep(.09,.43,abs(vUv.x-(.42+.17*swell)));float grain=.7+.3*sin(vUv.y*361.0+vUv.x*90.0);float a=band*grain*(.2+uWave*.29);a*=smoothstep(.0,.13,vUv.x)*(1.0-smoothstep(.83,1.0,vUv.x));gl_FragColor=vec4(.97,1.0,.92,a);}`});
+const foamMat=new THREE.ShaderMaterial({
+  uniforms:waveUniforms,transparent:true,depthWrite:false,side:THREE.DoubleSide,
+  vertexShader:swashVertexShader,fragmentShader:swashFragmentShader
+});
 const foamMesh=new THREE.Mesh(foamGeo,foamMat);foamMesh.renderOrder=6;scene.add(foamMesh);
 
 const sandRockMaterial=new THREE.MeshStandardMaterial({color:'#95877a',roughness:1,flatShading:true});
@@ -177,7 +147,7 @@ const trunkMaterial=new THREE.MeshStandardMaterial({color:'#6d7153',roughness:1}
 const leafMaterial=new THREE.MeshStandardMaterial({color:'#6ba44a',roughness:1,flatShading:true});
 function createTree(x,z,scale=1) {
   const g=new THREE.Group();
-  const y=terrainHeight(x,z);
+  const y=editedHeight(x,z);
   const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.055*scale,.087*scale,.36*scale,5),trunkMaterial);
   trunk.position.y=.18*scale;trunk.castShadow=true;g.add(trunk);
   const leafColors=['#568b36','#75aa44','#a3bb62','#3e8039','#89a64b'];
@@ -211,11 +181,11 @@ for(const mesh of [leaves,smallLeaves,trunks]) {mesh.instanceMatrix.needsUpdate=
 leaves.instanceColor.needsUpdate=true;smallLeaves.instanceColor.needsUpdate=true;
 
 function createRock(x,z,sc=1,rockMaterial=sandRockMaterial){
- const baseY=landDistance(x,z)>0?terrainHeight(x,z):-.10;
+ const baseY=landDistance(x,z)>0?editedHeight(x,z):-.10;
  const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(1,0),rockMaterial);
  rock.position.set(x,baseY+.10*sc,z);
  rock.scale.set(.27*sc,.19*sc,.32*sc);rock.rotation.set(rand()*.25,rand()*6,rand()*.25);rock.castShadow=true;rock.receiveShadow=true;
- rock.userData.kind='rock';scene.add(rock);return rock;
+ rock.userData.kind='rock';rock.userData.baseOffset=.10*sc;scene.add(rock);return rock;
 }
 for(let i=0;i<94;i++){
  const z=(rand()-.5)*10.1;
@@ -258,16 +228,29 @@ const interactiveItems=[];
 const history=[];
 let tool='explore', isPainting=false, waveHeight=.6, speed=1, paused=false, elapsed=0, hours=10, brushSize=.7, zoomBase=1;
 const raycaster=new THREE.Raycaster(),pointerNdc=new THREE.Vector2(),landPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.1),hit=new THREE.Vector3();
+function editedHeight(x,z){
+ const ix=clamp(Math.round((x+HALF_WIDTH)*SEG_X/WIDTH),0,SEG_X);
+ const iz=clamp(Math.round((z+HALF_DEPTH)*SEG_Z/DEPTH),0,SEG_Z);
+ return terrainPositions.getY(iz*(SEG_X+1)+ix);
+}
 function pointerWorld(event){
  const rect=canvas.getBoundingClientRect();
  pointerNdc.set((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2);
  raycaster.setFromCamera(pointerNdc,camera);
- const point=raycaster.ray.intersectPlane(landPlane,hit);
+ const intersection=raycaster.intersectObject(terrain,false)[0];
+ const point=intersection ? intersection.point : raycaster.ray.intersectPlane(landPlane,hit);
  if(!point)return null;
  if(point.x<-HALF_WIDTH||point.x>HALF_WIDTH||point.z<-HALF_DEPTH||point.z>HALF_DEPTH)return null;
  return point.clone();
 }
-function updateGeometry(){terrainPositions.needsUpdate=true;terrainGeometry.computeVertexNormals();}
+function updateGeometry(){
+ terrainPositions.needsUpdate=true;terrainGeometry.computeVertexNormals();
+ for(const o of interactiveItems){
+  if(landDistance(o.position.x,o.position.z)<=0)continue;
+  if(o.userData.kind==='tree')o.position.y=editedHeight(o.position.x,o.position.z);
+  if(o.userData.kind==='rock')o.position.y=editedHeight(o.position.x,o.position.z)+(o.userData.baseOffset||0);
+ }
+}
 function sculpt(point){
  if(landDistance(point.x,point.z)<.0)return;
  const radius=brushSize;
@@ -324,7 +307,7 @@ canvas.addEventListener('pointermove',event=>{
  brushRing.visible=Boolean(point);
  if(!point)return;
  brushRing.scale.setScalar(brushSize/.7);
- brushRing.position.set(point.x,.22,point.z);
+ brushRing.position.set(point.x,Math.max(.11,point.y+.065),point.z);
  if(isPainting && ['raise','lower','smooth'].includes(tool)&&performance.now()-lastDraw>25){handleBrush(point);lastDraw=performance.now();}
 });
 function release(event){isPainting=false;if(event?.pointerId!==undefined&&canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);}

@@ -10,7 +10,11 @@ export const landDistance = (x, z) => shoreline(z) - x;
 export const noise = (x, z) => Math.sin(x * 3.27 + Math.cos(z * 2.73)) * Math.cos(z * 3.41 - x * 1.19);
 export const terrainHeight = (x, z) => {
   const distance = landDistance(x, z);
-  if (distance < 0) return -0.24 - 0.07 * Math.min(-distance, 7) + 0.045 * noise(x, z);
+  if (distance < 0) {
+    const seaward = -distance;
+    // Continuous sandy seabed: no cliff where the beach meets the water.
+    return .08 + .033 * noise(x, z) - .12 * smoothstep(0, 1.2, seaward) - .24 * smoothstep(0, 5, seaward);
+  }
   return 0.08 + 0.07 * smoothstep(0, 1.5, distance) + 0.033 * noise(x, z) + 0.06 * smoothstep(2, 6, distance);
 };
 export const forestWeight = (x, z) => {
