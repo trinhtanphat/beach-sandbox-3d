@@ -23,8 +23,10 @@ export function runupPosition(time, alongShore = 0, strength = .6) {
   return .84-run*wet;
 }
 export function breakerPosition(time, alongShore=0) {
-  const p=waveFront(time,alongShore);
-  return .34-.33*p;
+  // alongShore is the shoreline UV, consistent with the ocean GLSL shader.
+  const v=(time*SURF_CYCLE_RATE + Math.sin(alongShore*9+.3)*.027+alongShore*.012)%1;
+  const phase=(v+1)%1;
+  return .34-.33*phase;
 }
 // All shader phases remain consistent with this deterministic JS model.
 // Because y-perturbations are in GLSL, the CPU check is for the centre line.
@@ -168,15 +170,15 @@ void main(){
   float tail=smoothstep(.006,.028,d)*(1.-smoothstep(.16,.28,d));
   float bubbles=smoothstep(.39,.77,snoise(vUv*vec2(110.,153.)+uTime*.24));
   float spray=smoothstep(.62,.9,snoise(vUv*vec2(240.,319.)-uTime*.44));
-  float lingering=exp(-pow((vUv.x-(.63+.012*sin(vUv.y*49.+uTime*.8)))/.042,2.));
+  float lingering=exp(-pow((vUv.x-(.63+.012*sin(vUv.y*49.+uTime*.8)))/.028,2.));
   float alpha=white*(.81+.17*bubbles)+tail*(bubbles*.28+spray*.18);
-  alpha+=lingering*(.12+.27*bubbles)*(.55+.45*wet);
+  alpha+=lingering*(.31+.36*bubbles)*(.65+.35*wet);
   // Thin clear water film after crest passage darkens sand without an opaque
   // cyan rectangle. Fade the whole film as the breaker drains.
   float wetFilm=smoothstep(front-.015,front+.09,vUv.x)
                  *(1.-smoothstep(front+.26,front+.42,vUv.x));
   float retreatFade=1.-smoothstep(.75,.99,phase);
-  alpha+=wetFilm*.11*retreatFade;
+  alpha+=wetFilm*.15*retreatFade;
   alpha*=smoothstep(.008,.050,vUv.x)*(1.-smoothstep(.975,1.,vUv.x));
   vec3 foamColor=mix(vec3(.32,.72,.69),vec3(.98,1.,.97),
                       clamp(max(white*.96,lingering*.88)+bubbles*.28,0.,1.));
