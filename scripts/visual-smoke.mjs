@@ -52,6 +52,15 @@ try {
  await fs.mkdir(folder,{recursive:true});
  const filename=path.join(folder,'shoreline-real-browser.png');
  await page.screenshot({path:filename,fullPage:true});
+ await page.setViewportSize({width:390,height:720});
+ await page.waitForTimeout(300);
+ assert.equal(await page.getAttribute('#btn-mobile-tools','aria-expanded'),'false');
+ const bottomControlsGap=await page.evaluate(()=>document.querySelector('.bottom-center').getBoundingClientRect().left-document.getElementById('btn-mobile-tools').getBoundingClientRect().right);
+ assert.ok(bottomControlsGap>=5,'Mobile Tools button overlaps the simulation controls');
+ await page.click('#btn-mobile-tools');
+ assert.equal(await page.getAttribute('#btn-mobile-tools','aria-expanded'),'true');
+ await page.click('[data-tool="plant"]');
+ assert.equal(await page.getAttribute('#btn-mobile-tools','aria-expanded'),'false');
  const criticalErrors=errors.filter(e=>!/fonts\\.googleapis\\.com|fonts\\.gstatic\\.com/i.test(e));
  assert.deepEqual(criticalErrors,[],'Browser JavaScript or console errors');
  console.log(JSON.stringify({url,gpu,avgFrameMs,approxFps:Math.round(1000/avgFrameMs),savedBytes:saved.length,screenshot:filename},null,2));

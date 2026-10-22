@@ -13,7 +13,8 @@
     <canvas id="world" aria-label="Interactive 3D beach sandbox"></canvas>
     <header class="top-left"><span class="brand-mark">◉</span><div><strong>Shoreline</strong><span class="brand-sub">A little world, alive.</span></div><span class="world-tag">BEACH 001</span></header>
     <div class="top-right"><div class="live-dot"></div><span>LIVE SIMULATION</span><button id="btn-camera" title="Reset camera">↗ View</button><button id="btn-help" title="Show controls">? Help</button></div>
-    <aside class="tool-panel" aria-label="Sandbox tools">
+    <button id="btn-mobile-tools" class="mobile-tools-toggle" type="button" aria-controls="tools-panel" aria-expanded="false">☰ &nbsp; Tools</button>
+    <aside class="tool-panel" id="tools-panel" aria-label="Sandbox tools">
       <div class="panel-header"><span class="mini-eyebrow">YOUR SANDBOX</span><strong>Make your world.</strong></div>
       <button class="tool active" data-tool="explore"><span class="tool-icon">✥</span><span>Explore</span><kbd>1</kbd></button>
       <button class="tool" data-tool="raise"><span class="tool-icon">♠</span><span>Build sand</span><kbd>2</kbd></button>
@@ -27,7 +28,7 @@
       <div class="tool-divider"></div>
       <div class="brush-row"><span>BRUSH SIZE</span><span id="brush-value">0.7</span></div>
       <input id="brush" aria-label="Brush size" type="range" min="0.3" max="1.8" step="0.1" value="0.7" />
-      <div class="save-actions"><button id="btn-save" title="Save your island on this browser">↓ Save</button><button id="btn-load" title="Restore your last saved island">↥ Load</button></div>
+      <div class="save-actions"><button id="btn-save" title="Save your island on this browser">↓ Save</button><button id="btn-load" title="Restore your last saved island">↥ Load</button><button id="btn-export-json" title="Download a portable island save">⇩ Export</button><button id="btn-import-json" title="Import a saved island file">⇧ Import</button><input id="island-file" type="file" accept=".json,application/json" hidden></div>
       <button class="reset" id="btn-shot" title="Save a PNG screenshot">▣ &nbsp; Export image</button>
       <button class="reset" id="btn-reset">↺ &nbsp; Reset island</button>
     </aside>

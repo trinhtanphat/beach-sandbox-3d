@@ -16,7 +16,7 @@ try {
  document.querySelector('.app-shell').append(warning);
  throw error;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.45));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -45,7 +45,7 @@ scene.add(ambient);
 const sunlight = new THREE.DirectionalLight('#fff0d2', 3.2);
 sunlight.position.set(-5, 17, 11);
 sunlight.castShadow = true;
-sunlight.shadow.mapSize.set(2048, 2048);
+sunlight.shadow.mapSize.set(1024, 1024);
 sunlight.shadow.camera.left = -15;
 sunlight.shadow.camera.right = 15;
 sunlight.shadow.camera.top = 15;
@@ -155,16 +155,21 @@ const sandRockMaterial=new THREE.MeshStandardMaterial({color:'#95877a',roughness
 const underRockMaterial=new THREE.MeshStandardMaterial({color:'#747971',roughness:1,flatShading:true});
 const trunkMaterial=new THREE.MeshStandardMaterial({color:'#6d7153',roughness:1});
 const leafMaterial=new THREE.MeshStandardMaterial({color:'#6ba44a',roughness:1,flatShading:true});
+const handTreeTrunkGeo=new THREE.CylinderGeometry(.055,.087,.36,5);
+const handTreeCrownGeo=new THREE.IcosahedronGeometry(.29,1);
+const handTreeSmallCrownGeo=new THREE.IcosahedronGeometry(.21,1);
+const handTreeColors=['#568b36','#75aa44','#a3bb62','#3e8039','#89a64b'];
+const handTreeMaterials=handTreeColors.map(color=>new THREE.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 function createTree(x,z,scale=1) {
   const g=new THREE.Group();
+  g.scale.setScalar(scale);
   const y=editedHeight(x,z);
-  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.055*scale,.087*scale,.36*scale,5),trunkMaterial);
-  trunk.position.y=.18*scale;trunk.castShadow=true;g.add(trunk);
-  const leafColors=['#568b36','#75aa44','#a3bb62','#3e8039','#89a64b'];
-  const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(.29*scale,1),new THREE.MeshStandardMaterial({color:leafColors[Math.floor(rand()*leafColors.length)],roughness:1,flatShading:true}));
-  crown.position.y=.48*scale;crown.scale.set(1.1,.87,1.05);crown.castShadow=true;g.add(crown);
-  const crown2=new THREE.Mesh(new THREE.IcosahedronGeometry(.21*scale,1),crown.material);
-  crown2.position.set(.13*scale,.48*scale,.13*scale);g.add(crown2);
+  const trunk=new THREE.Mesh(handTreeTrunkGeo,trunkMaterial);
+  trunk.position.y=.18;trunk.castShadow=true;g.add(trunk);
+  const crown=new THREE.Mesh(handTreeCrownGeo,handTreeMaterials[Math.floor(rand()*handTreeMaterials.length)]);
+  crown.position.y=.48;crown.scale.set(1.1,.87,1.05);crown.castShadow=true;g.add(crown);
+  const crown2=new THREE.Mesh(handTreeSmallCrownGeo,crown.material);
+  crown2.position.set(.13,.48,.13);g.add(crown2);
   g.position.set(x,y,z);
   g.userData.kind='tree';g.userData.scale=scale;scene.add(g);return g;
 }
@@ -192,40 +197,81 @@ for(let i=0;i<FOREST_COUNT;i++) {
 for(const mesh of [leaves,smallLeaves,trunks]) {mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;scene.add(mesh);}
 leaves.instanceColor.needsUpdate=true;smallLeaves.instanceColor.needsUpdate=true;
 
+const rockGeometry=new THREE.DodecahedronGeometry(1,0);
 function createRock(x,z,sc=1,rockMaterial=sandRockMaterial){
  const baseY=landDistance(x,z)>0?editedHeight(x,z):-.10;
- const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(1,0),rockMaterial);
+ const rock=new THREE.Mesh(rockGeometry,rockMaterial);
  rock.position.set(x,baseY+.10*sc,z);
  rock.scale.set(.27*sc,.19*sc,.32*sc);rock.rotation.set(rand()*.25,rand()*6,rand()*.25);rock.castShadow=true;rock.receiveShadow=true;
  rock.userData.kind='rock';rock.userData.scale=sc;rock.userData.baseOffset=.10*sc;scene.add(rock);return rock;
 }
-for(let i=0;i<94;i++){
+// Instanced native rock field: two draw calls instead of ~90.
+const NATURAL_ROCK_LIMIT=94;
+const naturalRockSets=[sandRockMaterial,underRockMaterial].map(material=>({
+ mesh:new THREE.InstancedMesh(rockGeometry,material,NATURAL_ROCK_LIMIT),points:[]
+}));
+const rockObject=new THREE.Object3D();
+for(let i=0;i<NATURAL_ROCK_LIMIT;i++){
  const z=(rand()-.5)*10.1;
  const x=shoreline(z)+(rand()*9.8)-1;
  if(x>8.8||x<-8.8) continue;
- createRock(x,z,.24+rand()*1.1,landDistance(x,z)<0?underRockMaterial:sandRockMaterial);
+ const sc=.24+rand()*1.1;
+ const group=naturalRockSets[landDistance(x,z)<0?1:0];
+ const y=(landDistance(x,z)>0?terrainHeight(x,z):-.10)+.10*sc;
+ rockObject.position.set(x,y,z);
+ rockObject.scale.set(.27*sc,.19*sc,.32*sc);
+ rockObject.rotation.set(rand()*.25,rand()*6,rand()*.25);
+ rockObject.updateMatrix();
+ group.mesh.setMatrixAt(group.points.length,rockObject.matrix);
+ group.points.push({x,z,y,sc});
+}
+for(const set of naturalRockSets){
+ set.mesh.count=set.points.length;
+ set.mesh.instanceMatrix.needsUpdate=true;
+ set.mesh.castShadow=true;
+ set.mesh.receiveShadow=true;
+ scene.add(set.mesh);
 }
 // Tiny shells, flowers and sunlit specks create detail without texture downloads.
 const shellMaterials=[new THREE.MeshStandardMaterial({color:'#f7f1d4',roughness:1}),new THREE.MeshStandardMaterial({color:'#f8bda2',roughness:1}),new THREE.MeshStandardMaterial({color:'#f4b665',roughness:1})];
 const shellGeo=new THREE.IcosahedronGeometry(.038,0);
+const shellGroups=shellMaterials.map(mat=>({mesh:new THREE.InstancedMesh(shellGeo,mat,325),points:[]}));
+const shellObject=new THREE.Object3D();
 for(let i=0;i<325;i++){
  const z=(rand()-.5)*10.3;
  const x=shoreline(z)-.14-rand()*2.45;
  if(x<-8.8 || forestWeight(x,z)>.75)continue;
- const shell=new THREE.Mesh(shellGeo,shellMaterials[Math.floor(rand()*shellMaterials.length)]);
- shell.position.set(x,terrainHeight(x,z)+.037,z);shell.scale.set(1,.4,1.3);scene.add(shell);
+ const group=shellGroups[Math.floor(rand()*shellGroups.length)];
+ const y=terrainHeight(x,z)+.037;
+ shellObject.position.set(x,y,z);
+ shellObject.rotation.set(0,0,0);
+ shellObject.scale.set(1,.4,1.3);
+ shellObject.updateMatrix();
+ group.mesh.setMatrixAt(group.points.length,shellObject.matrix);
+ group.points.push({x,z,y});
+}
+for(const group of shellGroups){
+ group.mesh.count=group.points.length;
+ group.mesh.instanceMatrix.needsUpdate=true;
+ scene.add(group.mesh);
 }
 const boats=[];
+const boatHullGeo=new THREE.SphereGeometry(.30,10,7),boatDeckGeo=new THREE.BoxGeometry(.31,.02,.43),boatMastGeo=new THREE.CylinderGeometry(.014,.014,.56,6);
+const boatHullMat=new THREE.MeshStandardMaterial({color:'#bd7c45',roughness:.85});
+const boatDeckMat=new THREE.MeshStandardMaterial({color:'#fae0a5',roughness:1});
+const boatMastMat=new THREE.MeshStandardMaterial({color:'#725e42'});
+const boatSailMat=new THREE.MeshStandardMaterial({color:'#fff8dc',side:THREE.DoubleSide,roughness:1});
+const boatSailGeo=new THREE.BufferGeometry();
+boatSailGeo.setAttribute('position',new THREE.Float32BufferAttribute([0,.67,0,0,.22,0,.27,.22,0],3));
+boatSailGeo.computeVertexNormals();
 function createBoat(x,z,scale=1) {
  const boat=new THREE.Group();
- const hull=new THREE.Mesh(new THREE.SphereGeometry(.30*scale,10,7),new THREE.MeshStandardMaterial({color:'#bd7c45',roughness:.85}));
- hull.scale.set(.67,.43,1.18);hull.position.y=.07*scale;hull.castShadow=true;boat.add(hull);
- const deck=new THREE.Mesh(new THREE.BoxGeometry(.31*scale,.02*scale,.43*scale),new THREE.MeshStandardMaterial({color:'#fae0a5',roughness:1}));deck.position.y=.15*scale;boat.add(deck);
- const mast=new THREE.Mesh(new THREE.CylinderGeometry(.014*scale,.014*scale,.56*scale,6),new THREE.MeshStandardMaterial({color:'#725e42'}));mast.position.y=.4*scale;boat.add(mast);
- const sailGeometry=new THREE.BufferGeometry();
- sailGeometry.setAttribute('position',new THREE.Float32BufferAttribute([0,.67*scale,0,0,.22*scale,0,.27*scale,.22*scale,0],3));
- sailGeometry.computeVertexNormals();
- const sail=new THREE.Mesh(sailGeometry,new THREE.MeshStandardMaterial({color:'#fff8dc',side:THREE.DoubleSide,roughness:1}));boat.add(sail);
+ boat.scale.setScalar(scale);
+ const hull=new THREE.Mesh(boatHullGeo,boatHullMat);
+ hull.scale.set(.67,.43,1.18);hull.position.y=.07;hull.castShadow=true;boat.add(hull);
+ const deck=new THREE.Mesh(boatDeckGeo,boatDeckMat);deck.position.y=.15;boat.add(deck);
+ const mast=new THREE.Mesh(boatMastGeo,boatMastMat);mast.position.y=.4;boat.add(mast);
+ const sail=new THREE.Mesh(boatSailGeo,boatSailMat);boat.add(sail);
  boat.position.set(x,.08,z);boat.rotation.y=rand()*6.28;boat.userData.kind='boat';boat.userData.scale=scale;boat.userData.phase=rand()*6.28;
  scene.add(boat);boats.push(boat);return boat;
 }
@@ -238,6 +284,13 @@ const brushRing=new THREE.Mesh(new THREE.RingGeometry(.63,.7,64),new THREE.MeshB
 brushRing.rotation.x=-Math.PI/2;brushRing.visible=false;scene.add(brushRing);
 const interactiveItems=[];
 const history=[];
+const MAX_PLACED_OBJECTS=400;
+function rememberChange(change){history.push(change);if(history.length>18)history.shift();}
+function mayPlaceObject(){
+ if(interactiveItems.length<MAX_PLACED_OBJECTS)return true;
+ toast('Island is full (400 added objects). Remove some to continue.');
+ return false;
+}
 function discardObject(object){
  scene.remove(object);
  if(object.userData.kind==='boat'){
@@ -255,6 +308,35 @@ function editedHeight(x,z){
  const ix=clamp(Math.round((x+HALF_WIDTH)*SEG_X/WIDTH),0,SEG_X);
  const iz=clamp(Math.round((z+HALF_DEPTH)*SEG_Z/DEPTH),0,SEG_Z);
  return terrainPositions.getY(iz*(SEG_X+1)+ix);
+}
+function syncFoamElevation(){
+  const pos=foamGeo.attributes.position;
+  for(let i=0;i<pos.count;i++){
+    const x=pos.getX(i),z=pos.getZ(i);
+    pos.setY(i,Math.max(.067,editedHeight(x,z)+.022));
+  }
+  pos.needsUpdate=true;
+  foamGeo.computeBoundingSphere();
+  syncInstancedGroundDetails();
+}
+function syncInstancedGroundDetails(){
+ const matrix=new THREE.Matrix4();
+ for(const group of [...naturalRockSets,...shellGroups]){
+  let changed=false;
+  for(let i=0;i<group.points.length;i++){
+   const record=group.points[i];
+   if(landDistance(record.x,record.z)<=0)continue;
+   const nextY=editedHeight(record.x,record.z)+(record.sc ? .1*record.sc : .037);
+   const diff=nextY-record.y;
+   if(Math.abs(diff)<.0005)continue;
+   group.mesh.getMatrixAt(i,matrix);
+   matrix.elements[13]+=diff;
+   group.mesh.setMatrixAt(i,matrix);
+   record.y=nextY;
+   changed=true;
+  }
+  if(changed)group.mesh.instanceMatrix.needsUpdate=true;
+ }
 }
 function pointerWorld(event){
  const rect=canvas.getBoundingClientRect();
@@ -306,29 +388,29 @@ function sculpt(point){
  }
  updateGeometry();
 }
-function captureTerrain(){history.push({type:'terrain',heights:Float32Array.from(terrainPositions.array.filter((_,i)=>i%3===1))});if(history.length>18)history.shift();}
+function captureTerrain(){rememberChange({type:'terrain',heights:Float32Array.from(terrainPositions.array.filter((_,i)=>i%3===1))});}
 function handleBrush(point){
  if(['raise','lower','smooth'].includes(tool)){sculpt(point);return;}
- if(tool==='plant'&&landDistance(point.x,point.z)>.25){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);history.push({type:'added',object:m});}
- if(tool==='rock'){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);history.push({type:'added',object:m});}
- if(tool==='boat'&&landDistance(point.x,point.z)<-.25){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);history.push({type:'added',object:m});}
+ if(tool==='plant'&&landDistance(point.x,point.z)>.25&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='rock'&&mayPlaceObject()){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='boat'&&landDistance(point.x,point.z)<-.25&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='erase'){
    let closest=null,best=brushSize;
    for(const o of interactiveItems){const d=Math.hypot(o.position.x-point.x,o.position.z-point.z);if(d<best){best=d;closest=o;}}
-   if(closest){discardObject(closest);interactiveItems.splice(interactiveItems.indexOf(closest),1);history.push({type:'removed',object:closest});}
+   if(closest){discardObject(closest);interactiveItems.splice(interactiveItems.indexOf(closest),1);rememberChange({type:'removed',object:closest});}
  }
  updateLife();
 }
 function updateLife(){document.getElementById('life-count').textContent=`${FOREST_COUNT+interactiveItems.filter(o=>o.userData.kind==='tree').length} trees`;}
 function undo(){const state=history.pop();if(!state)return;
- if(state.type==='terrain'){for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,state.heights[i]);updateGeometry();syncForestElevation();}
+ if(state.type==='terrain'){for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,state.heights[i]);updateGeometry();syncForestElevation();syncFoamElevation();}
  else if(state.type==='added'){discardObject(state.object);interactiveItems.splice(interactiveItems.indexOf(state.object),1);}
  else if(state.type==='removed'){restoreObject(state.object);interactiveItems.push(state.object);}
  updateLife();
 }
 function reset(){while(interactiveItems.length)discardObject(interactiveItems.pop());
  for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,initialHeights[i]);
- updateGeometry();syncForestElevation();history.length=0;updateLife();}
+ updateGeometry();syncForestElevation();syncFoamElevation();history.length=0;updateLife();}
 function toast(message) {
  const node=document.getElementById('status-toast');
  node.textContent=message;
@@ -352,33 +434,57 @@ function saveIsland(){
   toast('Island saved to this browser.');
  } catch(e) {toast('Unable to save island: '+e.message);}
 }
+function applyIsland(saved){
+ reset();
+ for(let i=0;i<saved.heights.length;i++)terrainPositions.setY(i,saved.heights[i]);
+ updateGeometry();
+ syncForestElevation();
+ syncFoamElevation();
+ for(const item of saved.objects){
+  const o=item.kind==='tree'?createTree(item.x,item.z,item.scale):
+   item.kind==='rock'?createRock(item.x,item.z,item.scale):
+   createBoat(item.x,item.z,item.scale);
+  interactiveItems.push(o);
+ }
+ waveHeight=saved.wave;
+ speed=saved.speed;
+ hours=saved.hours;
+ document.getElementById('wave').value=String(waveHeight);
+ document.getElementById('speed').value=String(speed);
+ document.getElementById('wave-height').textContent=waveHeight.toFixed(1)+' m';
+ document.getElementById('speed-label').textContent=speed.toFixed(1)+'×';
+ document.querySelector('.status-dot').textContent=waveHeight>1?'● Energetic':'● Calm';
+ history.length=0;
+ updateLife();
+ toast('Island restored: '+saved.objects.length+' placed objects.');
+}
 function loadIsland(){
- try {
+ try{
   const data=localStorage.getItem(SAVE_KEY);
   if(!data){toast('No saved island yet. Use Save first.');return;}
-  const saved=parseSnapshot(data,terrainPositions.count);
-  reset();
-  for(let i=0;i<saved.heights.length;i++)terrainPositions.setY(i,saved.heights[i]);
-  updateGeometry();
-  syncForestElevation();
-  for(const item of saved.objects){
-   const o=item.kind==='tree'?createTree(item.x,item.z,item.scale):
-    item.kind==='rock'?createRock(item.x,item.z,item.scale):
-    createBoat(item.x,item.z,item.scale);
-   interactiveItems.push(o);
-  }
-  waveHeight=saved.wave;
-  speed=saved.speed;
-  hours=saved.hours;
-  document.getElementById('wave').value=String(waveHeight);
-  document.getElementById('speed').value=String(speed);
-  document.getElementById('wave-height').textContent=waveHeight.toFixed(1)+' m';
-  document.getElementById('speed-label').textContent=speed.toFixed(1)+'×';
-  document.querySelector('.status-dot').textContent=waveHeight>1?'● Energetic':'● Calm';
-  history.length=0;
-  updateLife();
-  toast('Island restored: '+saved.objects.length+' placed objects.');
- } catch(e){toast('Unable to load island: '+e.message);}
+  applyIsland(parseSnapshot(data,terrainPositions.count));
+ }catch(e){toast('Unable to load island: '+e.message);}
+}
+function downloadIslandJSON(){
+ try{
+  const payload=JSON.stringify(snapshotIsland());
+  const url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='shoreline-island.json';
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Portable island JSON exported.');
+ }catch(e){toast('Export failed: '+e.message);}
+}
+async function importIslandJSON(event){
+ const input=event.currentTarget, file=input.files?.[0];
+ if(!file)return;
+ try{
+  if(file.size>1600000)throw new Error('The selected file is too large');
+  const state=parseSnapshot(await file.text(),terrainPositions.count);
+  applyIsland(state);
+  toast('Island JSON imported successfully.');
+ }catch(e){toast('Import failed: '+e.message);}
+ finally{input.value='';}
 }
 function exportImage(){
  try {
@@ -416,14 +522,37 @@ canvas.addEventListener('pointermove',event=>{
  brushRing.position.set(point.x,Math.max(.11,point.y+.065),point.z);
  if(isPainting && ['raise','lower','smooth'].includes(tool)&&performance.now()-lastDraw>25){handleBrush(point);lastDraw=performance.now();}
 });
-function release(event){if(isPainting&&['raise','lower','smooth'].includes(tool))syncForestElevation();isPainting=false;if(event?.pointerId!==undefined&&canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);}
+function release(event){if(isPainting&&['raise','lower','smooth'].includes(tool)){syncForestElevation();syncFoamElevation();}isPainting=false;if(event?.pointerId!==undefined&&canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);}
 canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
-canvas.addEventListener('pointerleave',()=>{brushRing.visible=false;if(isPainting&&['raise','lower','smooth'].includes(tool))syncForestElevation();isPainting=false;});
-for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>setTool(b.dataset.tool));
+canvas.addEventListener('pointerleave',()=>{brushRing.visible=false;if(isPainting&&['raise','lower','smooth'].includes(tool)){syncForestElevation();syncFoamElevation();}isPainting=false;});
+const toolPanel=document.getElementById('tools-panel');
+const mobileToolsButton=document.getElementById('btn-mobile-tools');
+const mobileLayout=window.matchMedia('(max-width:620px)');
+function closeMobileTools(){
+ toolPanel.classList.add('mobile-collapsed');
+ mobileToolsButton.setAttribute('aria-expanded','false');
+}
+function syncMobileLayout(){
+ if(mobileLayout.matches)closeMobileTools();
+ else {toolPanel.classList.remove('mobile-collapsed');mobileToolsButton.setAttribute('aria-expanded','false');}
+}
+mobileLayout.addEventListener('change',syncMobileLayout);
+syncMobileLayout();
+mobileToolsButton.addEventListener('click',()=>{
+ const opened=toolPanel.classList.toggle('mobile-collapsed')===false;
+ mobileToolsButton.setAttribute('aria-expanded',String(opened));
+});
+for(const b of document.querySelectorAll('[data-tool]'))b.addEventListener('click',()=>{
+ setTool(b.dataset.tool);
+ if(mobileLayout.matches)closeMobileTools();
+});
 document.getElementById('brush').addEventListener('input',e=>{brushSize=Number(e.target.value);document.getElementById('brush-value').textContent=brushSize.toFixed(1);});
 document.getElementById('btn-undo').addEventListener('click',undo);
 document.getElementById('btn-save').addEventListener('click',saveIsland);
 document.getElementById('btn-load').addEventListener('click',loadIsland);
+document.getElementById('btn-export-json').addEventListener('click',downloadIslandJSON);
+document.getElementById('btn-import-json').addEventListener('click',()=>document.getElementById('island-file').click());
+document.getElementById('island-file').addEventListener('change',importIslandJSON);
 document.getElementById('btn-shot').addEventListener('click',exportImage);
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Restore the island to its original landscape?'))reset();});
 document.getElementById('wave').addEventListener('input',e=>{waveHeight=Number(e.target.value);document.getElementById('wave-height').textContent=`${waveHeight.toFixed(1)} m`;document.querySelector('.status-dot').textContent=waveHeight>1?'● Energetic':'● Calm';});
