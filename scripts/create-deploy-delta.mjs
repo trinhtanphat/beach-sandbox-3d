@@ -1,0 +1,12 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const src=readFileSync('.edge-qa/staging-worker.js','utf8');
+const a=src.indexOf('const ASSETS=')+13,b=src.indexOf(';\nexport default',a);
+if(a<13||b<0)throw Error('Asset table not found');
+const assets=JSON.parse(src.slice(a,b));
+const keys=Object.keys(assets);
+const index=keys.find(k=>/^\/assets\/index-[^/]+\.js$/.test(k));
+if(!index||!assets['/index.html'])throw Error('Missing app bundle');
+const delta={newIndex:index,indexAsset:assets[index],htmlAsset:assets['/index.html']};
+const out='.edge-qa/deploy-delta.json';
+writeFileSync(out,JSON.stringify(delta));
+process.stdout.write(JSON.stringify({path:out,chars:JSON.stringify(delta).length,index}));
