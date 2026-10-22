@@ -47,7 +47,7 @@ test('GLSL wave uniforms and animated surf stages are present',()=>{
   assert.match(oceanVertexShader,/uniform float uTime/);
   assert.match(oceanVertexShader,/uniform float uWave/);
   assert.match(oceanFragmentShader,/uniform float uDay/);
-  assert.match(oceanFragmentShader,/breaker/);
+  assert.match(oceanFragmentShader,/surfSheet/);
   assert.match(oceanFragmentShader,/foam/);
   assert.match(swashVertexShader,/uniform float uTime/);
   assert.match(swashFragmentShader,/uniform float uWave/);
