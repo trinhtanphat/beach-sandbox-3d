@@ -9,7 +9,7 @@ export const SAVE_VERSION = 1;
 const allowedKinds = new Set(['tree', 'rock', 'boat']);
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 
-export function createSnapshot({ heights, objects = [], wave = .6, speed = 1, hours = 10 }) {
+export function createSnapshot({ heights, objects = [], wave = .6, foam = 1, speed = 1, hours = 10 }) {
   if (!heights || !Number.isInteger(heights.length) || heights.length < 1 || heights.length > 100000) throw new Error('Invalid terrain height data');
   if (!Array.isArray(objects) || objects.length > 1000) throw new Error('Invalid placed objects');
   const safeHeights = Array.from(heights, h => {
@@ -23,9 +23,9 @@ export function createSnapshot({ heights, objects = [], wave = .6, speed = 1, ho
     }
     return { kind: o.kind, x: +o.x.toFixed(3), z: +o.z.toFixed(3), scale: +o.scale.toFixed(3) };
   });
-  if (!finite(wave) || !finite(speed) || !finite(hours)) throw new Error('Invalid simulation settings');
+  if (!finite(wave) || !finite(foam) || !finite(speed) || !finite(hours)) throw new Error('Invalid simulation settings');
   return { version: SAVE_VERSION, heights: safeHeights, objects: safeObjects,
-    wave: clamp(wave,.1,1.6), speed: clamp(speed,.2,3), hours: ((hours%24)+24)%24 };
+    wave: clamp(wave,.1,1.6), foam: clamp(foam,.3,1.8), speed: clamp(speed,.2,3), hours: ((hours%24)+24)%24 };
 }
 
 export function parseSnapshot(json, expectedVertices) {

@@ -143,7 +143,7 @@ seaGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(seaUV,2));
 seaGeometry.setIndex(seaIndices);
 seaGeometry.computeVertexNormals();
 const reefField=makeReefField(THREE,scene,terrainHeight,shoreline);
-const waveUniforms={uTime:{value:0},uWave:{value:.6},uDay:{value:1}};
+const waveUniforms={uTime:{value:0},uWave:{value:.6},uDay:{value:1},uFoam:{value:1}};
 const waterMaterial = new THREE.ShaderMaterial({
   uniforms:waveUniforms,side:THREE.DoubleSide,transparent:true,depthWrite:false,
   vertexShader:oceanVertexShader,fragmentShader:oceanFragmentShader
@@ -328,7 +328,7 @@ function restoreObject(object){
  scene.add(object);
  if(object.userData.kind==='boat'&&!boats.includes(object))boats.push(object);
 }
-let tool='explore', isPainting=false, waveHeight=.6, speed=1, paused=false, elapsed=0, hours=10, brushSize=.7, zoomBase=1;
+let tool='explore', isPainting=false, waveHeight=.6, foamIntensity=1, speed=1, paused=false, elapsed=0, hours=10, brushSize=.7, zoomBase=1;
 const raycaster=new THREE.Raycaster(),pointerNdc=new THREE.Vector2(),landPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.1),hit=new THREE.Vector3();
 function editedHeight(x,z){
  const ix=clamp(Math.round((x+HALF_WIDTH)*SEG_X/WIDTH),0,SEG_X);
@@ -451,7 +451,7 @@ function snapshotIsland() {
   kind:o.userData.kind,x:o.position.x,z:o.position.z,
   scale:o.userData.scale||1
  }));
- return createSnapshot({heights,objects,wave:waveHeight,speed,hours});
+ return createSnapshot({heights,objects,wave:waveHeight,foam:foamIntensity,speed,hours});
 }
 function saveIsland(){
  try {
@@ -473,9 +473,12 @@ function applyIsland(saved){
   interactiveItems.push(o);
  }
  waveHeight=saved.wave;
+ foamIntensity=saved.foam;
  speed=saved.speed;
  hours=saved.hours;
  document.getElementById('wave').value=String(waveHeight);
+ document.getElementById('foam').value=String(foamIntensity);
+ document.getElementById('foam-label').textContent=Math.round(foamIntensity*100)+'%';
  document.getElementById('speed').value=String(speed);
  document.getElementById('wave-height').textContent=waveHeight.toFixed(1)+' m';
  document.getElementById('speed-label').textContent=speed.toFixed(1)+'×';
@@ -582,6 +585,7 @@ document.getElementById('island-file').addEventListener('change',importIslandJSO
 document.getElementById('btn-shot').addEventListener('click',exportImage);
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Restore the island to its original landscape?'))reset();});
 document.getElementById('wave').addEventListener('input',e=>{waveHeight=Number(e.target.value);document.getElementById('wave-height').textContent=`${waveHeight.toFixed(1)} m`;document.querySelector('.status-dot').textContent=waveHeight>1?'● Energetic':'● Calm';});
+document.getElementById('foam').addEventListener('input',e=>{foamIntensity=Number(e.target.value);document.getElementById('foam-label').textContent=Math.round(foamIntensity*100)+'%';});
 document.getElementById('speed').addEventListener('input',e=>{speed=Number(e.target.value);document.getElementById('speed-label').textContent=`${speed.toFixed(1)}×`;});
 document.getElementById('sun-hour').addEventListener('input',e=>{hours=Number(e.target.value);});
 document.getElementById('bird-count').textContent=BIRD_COUNT+' flying';
@@ -628,11 +632,12 @@ function animate(){requestAnimationFrame(animate);
  }
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}
  waveUniforms.uTime.value=elapsed;
- surfSpray.update(elapsed,waveHeight);
- breakingLip.update(elapsed,waveHeight,daylight(hours));
+ surfSpray.update(elapsed,waveHeight,foamIntensity);
+ breakingLip.update(elapsed,waveHeight,daylight(hours),foamIntensity);
  gulls.update(elapsed);
  oceanAudio.update(elapsed,waveHeight,paused);
  waveUniforms.uWave.value=waveHeight;
+ waveUniforms.uFoam.value=foamIntensity;
  waveUniforms.uDay.value=daylight(hours);
  const day=daylight(hours);
  ambient.intensity=1.2+1.25*day;

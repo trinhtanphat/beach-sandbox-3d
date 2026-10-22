@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v8**: two raised 3D breaker trains (one stronger coastal break, one weaker trailing swell) share a GPU mesh, with synchronized staggered foam spray, scalloped shoreline fronts and continuous 4.35-second lifecycles. Natural longshore variation replaces mechanically straight white bands. GPU vertex animation from v7 remains; no CPU vertex reuploads per frame. The sea remains a stylized WebGL simulation, not CFD.
+- **Animated surf v9**: two shore-following 3D breaker trains, soft low-frequency whitecap breakup and a separate **Whitewater foam** slider (30–180%) control the ocean crest, wet beach wash, curling lip and 460 foam droplets in sync. The new slider persists in Save/Load and portable island JSON, while version-1 saves without it still load with the 100% default. GPU vertex animation is retained; the sea is a stylized WebGL simulation, not CFD.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
@@ -15,10 +15,11 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 - Editor raycasts against the actual terrain surface. Placed trees and rocks, and the instanced forest canopy/trunks, follow deformed land when sculpting ends.
 - Browser-local Save / Load for full island terrain, added objects and sim controls. Portable JSON Export / Import works between devices; screenshot export to PNG. No backend or account required.
 - Clear error panel when WebGL cannot be initialized, instead of an unexplained empty scene.
-- Dynamic sun, time-of-day display and wave-height/simulation-speed controls.
+- Dynamic sun, time-of-day display, wave height, whitewater foam intensity and simulation-speed controls.
 - Orbit, zoom, build sand, dig, rake, plant a tree, add rocks, launch a boat, erase, undo and reset.
 - Desktop/mobile adaptive UI: on phones, the tool palette collapses into a compact Tools button to keep the island visible; keyboard shortcuts 1–8, Space and Ctrl+Z remain available on desktop.
 - Repeatable terrain/vegetation generation with deterministic randomness.
+- JavaScript code splitting keeps the ~41 kB application chunk separate from the ~511 kB cacheable Three.js vendor chunk (the vendor chunk still triggers Vite's non-blocking size warning).
 
 ## Public demo
 
