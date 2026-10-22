@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v5**: two shoreward-moving swells now drive a real, raised, GPU-rendered **curling foam-lip mesh** that traces the curved beach. Shallow-water foam and a brighter beach-edge wash stay synchronized with the water elevation; 460 batched spray particles are rendered as soft, procedural circular droplets rather than square pixels. Increasing Wave height increases actual crest elevation. Sand receives advancing and retreating swash over the same 4.35-second cycle. All wave graphics are original, with no external textures.
+- **Animated surf v6**: two shoreward-moving swells drive a raised **curling foam-lip mesh** following the curved beach. Each crest fades smoothly into existence offshore and dissolves near the shoreline, eliminating abrupt animation-cycle jumps. Water elevation, wave foam, curl height and 460 soft round spray droplets share one lifecycle. Continuous foam noise reduces jagged sparkles, while beach whitewash travels with the swash rather than forming a stationary stripe. Not a CFD fluid simulation.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
@@ -56,7 +56,7 @@ npm run preview
 
 ## Performance and security
 
-- Trees, seabirds, underwater reefs, background rocks and shells use GPU instancing (reducing hundreds of draw calls to a handful); water is one combined indexed mesh. DPR is capped at 1.65 on desktop and 1.35 on mobile, and the shadow map is 1024×1024.
+- Trees, seabirds, underwater reefs, background rocks and shells use GPU instancing (reducing hundreds of draw calls to a handful); water is one combined indexed mesh. DPR starts at up to 1.65 on desktop or 1.35 on mobile, and adapts downward only after sustained low FPS, gradually returning to full sharpness if FPS recovers. Shadow map is 1024×1024.
 - Scene generation is local to the browser; no login, tracking, backend or uploaded assets.
 - A machine without a GPU can host the Vite dev server or built static files; GPU rendering happens on the viewer's browser/device.
 
