@@ -27,3 +27,8 @@
 .right-stack .glass-card{background:rgba(255,253,246,.92)}
 .top-left .brand-mark{color:#fa9b62;background:#f5fff4}
 @media(max-width:620px){.top-right #btn-sound{padding:8px 7px;font-size:9px}.right-stack{top:71px}}
+
+/* Opt-in local diagnostics only; hidden for ordinary visitors. */
+.perf-panel{position:absolute;z-index:12;top:82px;left:50%;transform:translateX(-50%);max-width:min(570px,calc(100vw - 24px));padding:10px 15px;display:flex;flex-direction:column;gap:4px;border-radius:12px;background:rgba(22,42,48,.91);color:#f3fffd;font:600 11px/1.4 Manrope,system-ui,sans-serif;box-shadow:0 7px 22px #0003;pointer-events:none;text-align:center}
+.perf-panel strong{font-size:12px;letter-spacing:.03em}.perf-panel span{font-variant-numeric:tabular-nums}.perf-panel small{font-size:10px;font-weight:400;color:#c3d4d3}
+@media(max-width:650px){.perf-panel{top:59px;font-size:10px;padding:8px 10px}.perf-panel strong{font-size:11px}}
