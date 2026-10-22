@@ -22,11 +22,20 @@ export function runupPosition(time, alongShore = 0, strength = .6) {
   const wet=p<.65?ease(p/.65):1-ease((p-.65)/.35);
   return .84-run*wet;
 }
+export function breakerPhase(time, alongShore=0, shift=0) {
+  const raw=time*SURF_CYCLE_RATE + Math.sin(alongShore*9+.3)*.027
+    + alongShore*.012+shift;
+  return ((raw%1)+1)%1;
+}
+export function waveEnvelope(phase) {
+  // Birth at deep-water side and dissolution at shore happen invisibly.
+  const p=((phase%1)+1)%1;
+  const born=ease(p/.12);
+  const spent=1-ease((p-.77)/.23);
+  return born*spent;
+}
 export function breakerPosition(time, alongShore=0) {
-  // alongShore is the shoreline UV, consistent with the ocean GLSL shader.
-  const v=(time*SURF_CYCLE_RATE + Math.sin(alongShore*9+.3)*.027+alongShore*.012)%1;
-  const phase=(v+1)%1;
-  return .34-.33*phase;
+  return .34-.33*breakerPhase(time,alongShore);
 }
 // All shader phases remain consistent with this deterministic JS model.
 // Because y-perturbations are in GLSL, the CPU check is for the centre line.
@@ -52,6 +61,10 @@ void main() {
   float width=.019+.011*clamp(uWave/1.6,0.,1.);
   float crestA=exp(-pow((uv.x-frontA)/width,2.));
   float crestB=exp(-pow((uv.x-frontB)/(width*.84),2.));
+  float lifeA=smoothstep(0.,.12,phaseAt(uv))*(1.-smoothstep(.77,1.,phaseAt(uv)));
+  float lifeB=smoothstep(0.,.12,fract(phaseAt(uv)+.56))*(1.-smoothstep(.77,1.,fract(phaseAt(uv)+.56)));
+  crestA*=lifeA;
+  crestB*=lifeB;
   float offshore=(smoothstep(.08,.45,uv.x));
   float swell=sin(uv.x*27.0+uTime*2.3+uv.y*8.0)*.025
              +sin(uv.x*62.0+uTime*3.6-uv.y*22.0)*.007;
@@ -114,8 +127,12 @@ void main(){
   float micro=snoise(uv*vec2(405.,165.)+vec2(uTime*.34,0.));
   float frontA=frontAt(uv,0.0);
   float frontB=frontAt(uv,.56);
-  float foamA=surfSheet(uv.x,frontA,strand);
-  float foamB=surfSheet(uv.x,frontB,micro)*.43;
+  float cycleA=fract(uTime*.23+sin(uv.y*9.+.3)*.027+uv.y*.012);
+  float cycleB=fract(cycleA+.56);
+  float lifeA=smoothstep(0.,.12,cycleA)*(1.-smoothstep(.77,1.,cycleA));
+  float lifeB=smoothstep(0.,.12,cycleB)*(1.-smoothstep(.77,1.,cycleB));
+  float foamA=surfSheet(uv.x,frontA,strand)*lifeA;
+  float foamB=surfSheet(uv.x,frontB,micro)*.43*lifeB;
   float foam=clamp(foamA+foamB,0.,1.);
   float shorewash=(1.-smoothstep(.008,.030,uv.x))*(.25+.10*snoise(uv*vec2(20.,61.)+uTime));
   foam=clamp((foam+shorewash)*(.46+.54*clamp(uWave/.8,0.,1.5)),0.,1.);
@@ -170,9 +187,10 @@ void main(){
   float tail=smoothstep(.006,.028,d)*(1.-smoothstep(.16,.28,d));
   float bubbles=smoothstep(.39,.77,snoise(vUv*vec2(110.,153.)+uTime*.24));
   float spray=smoothstep(.62,.9,snoise(vUv*vec2(240.,319.)-uTime*.44));
-  float lingering=exp(-pow((vUv.x-(.63+.012*sin(vUv.y*49.+uTime*.8)))/.028,2.));
+  float trailingFront=front+.115+.012*sin(vUv.y*49.+uTime*.7);
+  float lingering=exp(-pow((vUv.x-trailingFront)/.025,2.));
   float alpha=white*(.81+.17*bubbles)+tail*(bubbles*.28+spray*.18);
-  alpha+=lingering*(.31+.36*bubbles)*(.65+.35*wet);
+  alpha+=lingering*(.18+.29*bubbles)*(.40+.60*wet);
   // Thin clear water film after crest passage darkens sand without an opaque
   // cyan rectangle. Fade the whole film as the breaker drains.
   float wetFilm=smoothstep(front-.015,front+.09,vUv.x)

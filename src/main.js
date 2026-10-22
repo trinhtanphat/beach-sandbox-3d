@@ -21,7 +21,8 @@ try {
  document.querySelector('.app-shell').append(warning);
  throw error;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth<650?1.35:1.65));
+const initialDprCap=Math.min(window.devicePixelRatio || 1, window.innerWidth<650?1.35:1.65);
+renderer.setPixelRatio(initialDprCap);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -603,13 +604,26 @@ function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;
 window.addEventListener('resize',resize);
 updateLife();resize();
 const watch = new THREE.Clock();
-let fpsSeconds=0,fpsFrames=0;
+let fpsSeconds=0,fpsFrames=0,lowFpsSeconds=0,highFpsSeconds=0;
 function animate(){requestAnimationFrame(animate);
  const rawDelta=watch.getDelta();
  const dt=Math.min(rawDelta,.08);
  fpsSeconds+=rawDelta;fpsFrames++;
  if(fpsSeconds>=1){
-  document.getElementById('fps-label').textContent=Math.round(fpsFrames/fpsSeconds)+' FPS';
+  const measuredFps=fpsFrames/fpsSeconds;
+  document.getElementById('fps-label').textContent=Math.round(measuredFps)+' FPS';
+  // Retain sharpness on GPU hardware; gradually reduce rendering resolution
+  // only after sustained low FPS (important on older integrated graphics).
+  lowFpsSeconds=measuredFps<23?lowFpsSeconds+fpsSeconds:0;
+  highFpsSeconds=measuredFps>53?highFpsSeconds+fpsSeconds:0;
+  const dpr=renderer.getPixelRatio();
+  if(lowFpsSeconds>=4&&dpr>.81){
+    renderer.setPixelRatio(Math.max(.8,dpr*.84));
+    resize();lowFpsSeconds=0;highFpsSeconds=0;
+  } else if(highFpsSeconds>=8&&dpr<initialDprCap-.01){
+    renderer.setPixelRatio(Math.min(initialDprCap,dpr*1.12));
+    resize();lowFpsSeconds=0;highFpsSeconds=0;
+  }
   fpsSeconds=0;fpsFrames=0;
  }
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}

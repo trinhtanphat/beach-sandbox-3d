@@ -5,7 +5,7 @@
  * One mesh/draw-call; no external textures.
  */
 import { DEPTH, HALF_DEPTH, HALF_WIDTH, shoreline, clamp } from './simulation.js';
-import { breakerPosition } from './waves.js';
+import { breakerPosition, breakerPhase, waveEnvelope } from './waves.js';
 
 export const LIP_ROWS = 200;
 export const LIP_COLS = 9;
@@ -18,12 +18,13 @@ export function lipSample(time,z,across=.5,wave=.6) {
   const phase=breakerPosition(time,v)
     +.005*Math.sin(v*64+time*.6)+.004*Math.sin(v*151-time*.47);
   const amp=clamp(wave,.1,1.6);
+  const life=waveEnvelope(breakerPhase(time,v));
   const span=.10+.075*amp;
   const rise=Math.pow(Math.max(0,Math.sin(Math.PI*across)),1.75);
   const irregular=.78+.22*Math.sin(v*47+time*.89)*Math.sin(v*19-time*.4);
   const x=coast+offshoreWidth*phase+(across-.5)*span-.037*rise*amp;
-  const y=LIP_BASE_Y+.020*amp+(.24*rise*irregular)*amp;
-  return {x,y,z,phase,foam:rise};
+  const y=LIP_BASE_Y+(.018+(.20*rise*irregular))*amp*life;
+  return {x,y,z,phase,foam:rise*life,life};
 }
 
 export function createBreakerLip(THREE,scene) {
@@ -58,17 +59,25 @@ export function createBreakerLip(THREE,scene) {
       uniform float uTime;uniform float uWave;uniform float uDay;
       varying vec2 vUv;
       float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+      float noise2(vec2 p){
+        vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+        return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),
+                   mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);
+      }
       void main(){
         float across=vUv.x;
         float dome=pow(max(0.,sin(3.14159265*across)),.8);
-        float lace=hash(floor(vUv*vec2(15.,270.)+vec2(uTime*.9,uTime*.25)));
-        float edge=clamp(dome*(.72+.20*lace),0.,1.);
-        float shoreFade=smoothstep(.015,.075,
-            fract(uTime*.23+sin(vUv.y*9.+.3)*.027+vUv.y*.012));
+        float lace=noise2(vUv*vec2(9.,98.)+vec2(uTime*.21,uTime*.15));
+        float smaller=noise2(vUv*vec2(18.,175.)+vec2(-uTime*.25,uTime*.29));
+        float edge=clamp(dome*(.64+.26*lace+.10*smaller),0.,1.);
+        float phase=fract(uTime*.23+sin(vUv.y*9.+.3)*.027+vUv.y*.012);
+        float fadeIn=smoothstep(0.,.12,phase);
+        float fadeOut=1.-smoothstep(.77,1.,phase);
+        float shoreFade=fadeIn*fadeOut;
         vec3 water=vec3(.48,.86,.83);
         vec3 bright=vec3(.96,1.,.985);
         vec3 color=mix(water,bright,pow(dome,.45));
-        float alpha=clamp(edge*(.73+.20*uWave)*(.36+.64*shoreFade),0.,.92);
+        float alpha=clamp(edge*(.66+.19*uWave)*shoreFade,0.,.87);
         gl_FragColor=vec4(color*(.82+.18*uDay),alpha);
       }`
   });
