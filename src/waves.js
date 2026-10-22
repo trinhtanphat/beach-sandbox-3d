@@ -220,6 +220,18 @@ void main(){
   gl_FragColor=vec4(sea,.91);
 }`;
 
+/**
+ * Raised advancing swash ridge: a shallow, short-lived 3D surface bulge.
+ * Deposited wet sand stays flat while the water retreats.
+ */
+export function swashCrestHeight(time, alongShore=0, x=.5, strength=.6) {
+  const phase=swashPhase(time,alongShore);
+  const wave=clamp(strength,.1,1.6);
+  const front=runupPosition(time,alongShore,wave);
+  const lip=Math.exp(-Math.pow((x-front)/.045,2));
+  const life=ease(phase/.10)*(1-ease((phase-.64)/.22));
+  return .05*wave*lip*life;
+}
 export const swashVertexShader = `
 uniform float uTime;
 uniform float uWave;
@@ -227,6 +239,15 @@ varying vec2 vUv;
 void main(){
   vUv=uv;
   vec3 p=position;
+  float phase=fract(uTime*.23+.23+sin(uv.y*9.+.3)*.027+uv.y*.012);
+  float run=.38+.26*clamp(uWave/1.6,0.,1.);
+  float attack=smoothstep(0.,.65,phase);
+  float retreat=smoothstep(.65,1.,phase);
+  float wet=phase<.65?attack:1.-retreat;
+  float front=.84-run*wet;
+  float life=smoothstep(0.,.10,phase)*(1.-smoothstep(.64,.86,phase));
+  float ridge=exp(-pow((uv.x-front)/.045,2.));
+  p.y+=.05*clamp(uWave,.1,1.6)*ridge*life;
   p.x+=.010*sin(uv.y*42.+uTime*.48);
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
 }`;
@@ -261,7 +282,8 @@ void main(){
   front+=.017*(lace-.5)+.008*sin(vUv.y*119.+uTime*.45);
   float d=vUv.x-front;
   // Foam is thick at the advancing front and breaks into lace behind it.
-  float white=exp(-pow(d/(.028+.011*uWave),2.));
+  float advancing=1.-smoothstep(.64,.86,phase);
+  float white=exp(-pow(d/(.028+.011*uWave),2.))*advancing;
   float tail=smoothstep(.006,.028,d)*(1.-smoothstep(.16,.28,d));
   float bubbles=smoothstep(.39,.77,snoise(vUv*vec2(110.,153.)+uTime*.24));
   float spray=smoothstep(.62,.9,snoise(vUv*vec2(240.,319.)-uTime*.44));
