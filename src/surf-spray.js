@@ -5,6 +5,7 @@
 import { DEPTH, HALF_WIDTH, shoreline, seededRandom } from './simulation.js';
 import { breakerPhase, breakerPosition, frontWarp, waveEnvelope, sectionBreak, breakSectionGLSL } from './waves.js';
 import { createOrganicFoamAtlas, FOAM_VARIANTS } from './foam-atlas.js';
+import { COASTAL_ZONES } from './world-layout.js';
 export const SPRAY_PARTICLES=460;
 
 export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
@@ -14,7 +15,7 @@ export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
   const front=.34-.33*phase+frontWarp(time,v);
   const rand=Math.sin(seed*127.1+z*311.7)*43758.5453;
   const r=rand-Math.floor(rand);
-  const coast=shoreline(z)-.1;
+  const coast=shoreline(z)-COASTAL_ZONES.seaOverlap;
   const waterWidth=HALF_WIDTH+.06-coast;
   return {
     x: coast+waterWidth*(front+(.004+.065*r)),
@@ -80,7 +81,7 @@ export function createSurfSpray(THREE,scene) {
     const seed=i+1;
     const z=(rand()-.5)*(DEPTH-.35);
     const jitter=(rand()-.5)*.10;
-    const coast=shoreline(z)-.1;
+    const coast=shoreline(z)-COASTAL_ZONES.seaOverlap;
     const r=Math.sin(seed*127.1+z*311.7)*43758.5453;
     positions[i*3]=coast;
     positions[i*3+1]=0;

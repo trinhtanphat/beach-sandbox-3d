@@ -4,6 +4,7 @@
  */
 import { DEPTH, HALF_DEPTH, HALF_WIDTH, shoreline, clamp } from './simulation.js';
 import { breakerPhase, frontWarp, waveEnvelope, sectionBreak, breakSectionGLSL } from './waves.js';
+import { COASTAL_ZONES } from './world-layout.js';
 
 export const LIP_ROWS=200;
 export const LIP_COLS=9;
@@ -12,7 +13,7 @@ export const LIP_BASE_Y=.104;
 
 export function lipSample(time,z,across=.5,wave=.6,shift=0) {
   const v=(z+HALF_DEPTH)/DEPTH;
-  const coast=shoreline(z)-.1;
+  const coast=shoreline(z)-COASTAL_ZONES.seaOverlap;
   const offshoreWidth=HALF_WIDTH+.06-coast;
   const phase=.34-.33*breakerPhase(time,v,shift)+frontWarp(time,v);
   const amp=clamp(wave,.1,1.6);
@@ -101,7 +102,7 @@ export function createBreakerLip(THREE,scene) {
   for(let train=0;train<LIP_TRAINS;train++){
     for(let row=0;row<=LIP_ROWS;row++){
       const z=-HALF_DEPTH+row/LIP_ROWS*DEPTH;
-      const coast=shoreline(z)-.1;
+      const coast=shoreline(z)-COASTAL_ZONES.seaOverlap;
       const offshoreWidth=HALF_WIDTH+.06-coast;
       for(let col=0;col<=LIP_COLS;col++){
         const local=row*(LIP_COLS+1)+col;

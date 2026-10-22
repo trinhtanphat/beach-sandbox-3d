@@ -6,9 +6,9 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 
 ## Features
 
-- Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v19**: adds narrow, branching **backwash foam rivulets** over the sand just exposed by retreating waves. Their position is tied to the moving waterline and the furthest run-up, and their animation is exactly periodic at the swell-cycle boundary. The four organic foam particle shapes, two curling 3D breakers, wet-sand shading and adaptive DPR remain. This is stylized shader water, not physical CFD.
-- **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
+- Rebuilt 3D diorama with a coherent coastal biome: a broader pale-sand strand, 255 deliberately spaced tropical trees, shallow turquoise reef water, submerged coral and boats.
+- **Coherent island redesign v20**: natural foliage grouping respects a shared dry-land buffer, interactive placement respects shoreline zones, and seabed rocks/coral stay underwater. The nearshore-to-shelf water palette now fades smoothly, with less harsh lighting and a readable shoreline. The two curling 3D breakers, 460 GPU foam droplets, phase-locked retreat rivulets, wet sand and adaptive DPR remain. This is stylized WebGL, not physical CFD.
+- **Living ecosystem**: 14 animated seabirds in a single GPU draw call, and up to 360 seeded reef objects kept beneath the water surface (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
 - **Continuous coastal bathymetry**: sea floor now joins the beach without a vertical seam; surf overlays the sloped shore.
@@ -18,7 +18,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 - Dynamic sun, time-of-day display, wave height, whitewater foam intensity and simulation-speed controls.
 - Orbit, zoom, build sand, dig, rake, plant a tree, add rocks, launch a boat, erase, undo and reset.
 - Desktop/mobile adaptive UI: on phones, the tool palette collapses into a compact Tools button to keep the island visible; keyboard shortcuts 1–8, Space and Ctrl+Z remain available on desktop.
-- Repeatable terrain/vegetation generation with deterministic randomness.
+- Repeatable terrain/vegetation generation with deterministic randomness. Centralized `COASTAL_ZONES` keeps surf overlap, wet beach, planting, forest, boat and reef positions consistent; 78 automated tests cover both legacy simulation and world-layout constraints.
 - JavaScript code splitting keeps the ~42 kB application chunk separate from the ~511 kB Three.js vendor chunk. The isolated Cloudflare Worker now caches content-hashed static assets for one year and makes HTML revalidate, with a self-test verifying exact decompressed bytes, HEAD, ETags, 404 and 405. The vendor chunk still triggers Vite's non-blocking size warning.
 
 ## Public demo

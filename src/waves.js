@@ -174,18 +174,20 @@ float surfSheet(float x,float front,float n,vec2 uv) {
 void main(){
   vec2 uv=vUv;
   float d=smoothstep(.0,.94,uv.x);
-  vec3 lagoon=vec3(.19,.84,.78);
-  vec3 turquoise=vec3(.036,.64,.68);
-  vec3 abyss=vec3(.01,.29,.45);
-  vec3 sea=mix(lagoon,turquoise,smoothstep(.065,.48,d));
-  sea=mix(sea,abyss,smoothstep(.36,1.0,d));
+  // A single gradual depth gradient: shallow sand, open turquoise, blue
+  // outer shelf. No sudden navy rectangular half of the island.
+  vec3 lagoon=vec3(.24,.83,.77);
+  vec3 turquoise=vec3(.055,.67,.69);
+  vec3 outerShelf=vec3(.026,.46,.57);
+  vec3 sea=mix(lagoon,turquoise,smoothstep(.09,.58,d));
+  sea=mix(sea,outerShelf,smoothstep(.30,1.0,d)*.84);
   // Refraction and sunlit cellular caustics, concentrated over pale sand.
   float c1=snoise(uv*vec2(154.,105.)+vec2(uTime*.6,-uTime*.4));
   float c2=snoise(uv*vec2(229.,181.)-vec2(uTime*.42,-uTime*.61));
   float caustic=pow(clamp(1.-abs(c1-c2)*3.0,0.,1.),5.0);
   sea+=vec3(.055,.12,.09)*caustic*(1.-smoothstep(.23,.81,d));
   float reef=snoise(uv*vec2(22.,37.));
-  sea=mix(sea,vec3(.035,.40,.37),smoothstep(.73,.93,reef)*.25*d);
+  sea=mix(sea,vec3(.068,.52,.46),smoothstep(.73,.93,reef)*.14*d);
   // Whitewater sheets follow the displaced wave crests, not unrelated sine stripes.
   float strand=snoise(uv*vec2(157.,57.)+vec2(-uTime*.23,uTime*.31));
   float micro=snoise(uv*vec2(405.,165.)+vec2(uTime*.34,0.));
@@ -216,8 +218,8 @@ void main(){
   sea=mix(sea,vec3(.97,1.,.99),foam*.98);
   float spec=pow(max(0.,sin(uv.x*195.+uTime*1.8)*sin(uv.y*220.-uTime)),24.);
   sea+=vec3(.26,.30,.21)*spec*uDay*(1.-foam);
-  sea*=.74+.26*uDay;
-  gl_FragColor=vec4(sea,.91);
+  sea*=.82+.18*uDay;
+  gl_FragColor=vec4(sea,.78);
 }`;
 
 /**

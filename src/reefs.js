@@ -1,4 +1,5 @@
 /** Low-poly tropical reef scatter, batched into a few InstancedMesh calls. */
+import { COASTAL_ZONES, submergedCenter } from './world-layout.js';
 export const REEF_CAPACITY=360;
 export function makeReefField(THREE,scene,terrainHeight,shoreline,seed=20261022){
  let state=seed>>>0;
@@ -18,16 +19,17 @@ export function makeReefField(THREE,scene,terrainHeight,shoreline,seed=20261022)
  const cells=[];
  for(let i=0;i<REEF_CAPACITY;i++){
    const z=(random()-.5)*9.7;
-   const x=shoreline(z)+1+random()*6.2;
+   const x=shoreline(z)+COASTAL_ZONES.reefMinOffshore+random()*5.6;
    if(x>8.7)continue;
    // Keep the nearshore shoal clear to read the surf.
    if(random()<.36 && x<4.4)continue;
    const floor=terrainHeight(x,z);
-   const size=.30+random()*1.2;
+   const size=.32+random()*.75;
    const v=variants[Math.floor(random()*variants.length)];
-   m.position.set(x,Math.min(-.08,floor+.075*size),z);
+   const vertical=size*(.24+random()*.25)*.17;
+   m.position.set(x,submergedCenter(floor,vertical),z);
    m.rotation.set(random()*.9,random()*Math.PI*2,random()*.55);
-   m.scale.set(size*(.65+random()*.4),size*(.4+random()*.7),size*(.65+random()*.45));
+   m.scale.set(size*(.55+random()*.32),vertical/.17,size*(.55+random()*.37));
    m.updateMatrix();
    v.mesh.setMatrixAt(v.count++,m.matrix);
    cells.push({x,z});
