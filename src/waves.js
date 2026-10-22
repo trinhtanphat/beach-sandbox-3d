@@ -89,6 +89,23 @@ void main() {
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
 }`;
 
+/**
+ * Shared section-break modulation. Crest visibility, lip and airborne foam
+ * use exactly the same repeating signal (including the secondary wave).
+ */
+export function sectionBreak(time, along=0, shift=0) {
+  const turn=2*Math.PI*SURF_CYCLE_RATE*time+shift*2*Math.PI;
+  const field=.5+.31*Math.sin(along*19+turn)+.19*Math.sin(along*43-2*turn);
+  const u=clamp((field-.27)/.50,0,1);
+  return .16+.84*ease(u);
+}
+export const breakSectionGLSL = `
+float breakingSections(float along,float time,float shift) {
+  float turn=time*1.44513262+shift*6.2831853;
+  float field=.5+.31*sin(along*19.+turn)+.19*sin(along*43.-2.*turn);
+  return .16+.84*smoothstep(.27,.77,field);
+}
+`;
 export const oceanFragmentShader = `
 uniform float uTime;
 uniform float uWave;
@@ -97,6 +114,7 @@ uniform float uFoam;
 varying vec2 vUv;
 varying float vRise;
 varying float vWash;
+${breakSectionGLSL}
 float hash21(vec2 p) {
   p=fract(p*vec2(123.34,345.45));
   p+=dot(p,p+34.345);
@@ -147,8 +165,8 @@ void main(){
   float cycleB=fract(cycleA+.56);
   float lifeA=smoothstep(0.,.12,cycleA)*(1.-smoothstep(.77,1.,cycleA));
   float lifeB=smoothstep(0.,.12,cycleB)*(1.-smoothstep(.77,1.,cycleB));
-  float foamA=surfSheet(uv.x,frontA,strand)*lifeA;
-  float foamB=surfSheet(uv.x,frontB,micro)*.43*lifeB;
+  float foamA=surfSheet(uv.x,frontA,strand)*lifeA*breakingSections(uv.y,uTime,0.);
+  float foamB=surfSheet(uv.x,frontB,micro)*.43*lifeB*breakingSections(uv.y,uTime,.56);
   // Low-frequency turbulence opens irregular gaps and softens the white edge.
   float breakSection=snoise(uv*vec2(21.,83.)+vec2(uTime*.11,-uTime*.09));
   float foam=clamp((foamA+foamB)*(.66+.52*breakSection),0.,1.);
