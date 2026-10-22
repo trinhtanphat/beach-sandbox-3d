@@ -3,7 +3,7 @@
  * Offshore swells form two offset wave trains with naturally curved fronts.
  */
 import { DEPTH, HALF_DEPTH, HALF_WIDTH, shoreline, clamp } from './simulation.js';
-import { breakerPhase, frontWarp, waveEnvelope } from './waves.js';
+import { breakerPhase, frontWarp, waveEnvelope, sectionBreak, breakSectionGLSL } from './waves.js';
 
 export const LIP_ROWS=200;
 export const LIP_COLS=9;
@@ -23,7 +23,7 @@ export function lipSample(time,z,across=.5,wave=.6,shift=0) {
   const irregular=.78+.22*Math.sin(v*47+time*.89)*Math.sin(v*19-time*.4);
   const x=coast+offshoreWidth*phase+(across-.5)*span-.037*rise*amp*strength;
   const y=LIP_BASE_Y+(.018+(.20*rise*irregular))*amp*life*strength;
-  return {x,y,z,phase,foam:rise*life*strength,life};
+  return {x,y,z,phase,foam:rise*life*strength*sectionBreak(time,v,shift),life,section:sectionBreak(time,v,shift)};
 }
 
 export const breakerLipVertexShader = `
@@ -35,6 +35,7 @@ uniform float uWave;
 varying vec2 vUv;
 varying float vLife;
 varying float vStrength;
+varying float vPhaseShift;
 void main(){
   vUv=uv;
   float v=uv.y;
@@ -46,6 +47,7 @@ void main(){
   float life=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle));
   vLife=life;
   vStrength=aStrength;
+  vPhaseShift=aPhaseShift;
   float wave=clamp(uWave,.1,1.6);
   float across=uv.x;
   float span=(.10+.075*wave)*(.78+.22*aStrength);
@@ -65,6 +67,8 @@ uniform float uFoam;
 varying vec2 vUv;
 varying float vLife;
 varying float vStrength;
+varying float vPhaseShift;
+${breakSectionGLSL}
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise2(vec2 p){
  vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
@@ -77,11 +81,11 @@ void main(){
  // Waves break in softly scalloped sections rather than a hard white ribbon.
  float lace=noise2(vUv*vec2(7.,60.)+vec2(uTime*.16,uTime*.10));
  float smaller=noise2(vUv*vec2(19.,169.)+vec2(-uTime*.25,uTime*.29));
- float breakSections=smoothstep(.20,.73,lace);
- float edge=clamp(dome*(.38+.45*breakSections+.17*smaller),0.,1.);
+ float breakSections=breakingSections(vUv.y,uTime,vPhaseShift);
+ float edge=clamp(dome*(.36+.37*lace+.27*smaller),0.,1.);
  vec3 water=vec3(.48,.86,.83),bright=vec3(.97,1.,.985);
  vec3 color=mix(water,bright,pow(dome,.5)*(.68+.32*breakSections));
- float alpha=clamp(edge*(.68+.18*uWave)*vLife*vStrength*uFoam,0.,.92);
+ float alpha=clamp(edge*(.68+.18*uWave)*vLife*vStrength*uFoam*breakSections,0.,.92);
  gl_FragColor=vec4(color*(.82+.18*uDay),alpha);
 }`;
 

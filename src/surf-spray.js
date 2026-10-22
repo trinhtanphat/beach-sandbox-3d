@@ -3,7 +3,7 @@
  * are uploaded only once. CPU sample remains available for deterministic tests.
  */
 import { DEPTH, HALF_WIDTH, shoreline, seededRandom } from './simulation.js';
-import { breakerPhase, breakerPosition, frontWarp, waveEnvelope } from './waves.js';
+import { breakerPhase, breakerPosition, frontWarp, waveEnvelope, sectionBreak, breakSectionGLSL } from './waves.js';
 export const SPRAY_PARTICLES=460;
 
 export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
@@ -18,7 +18,7 @@ export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
   return {
     x: coast+waterWidth*(front+(.004+.065*r)),
     y: .155+.012*Math.sin(time*2.4+seed)+r*.055*strength,
-    z,life
+    z,life,section:sectionBreak(time,v,shift),visibleLife:life*sectionBreak(time,v,shift)
   };
 }
 
@@ -31,10 +31,11 @@ attribute float aPhaseShift;
 uniform float uTime;
 uniform float uWave;
 varying float vLife;
+${breakSectionGLSL}
 void main(){
   float v=aAlong;
   float cycle=fract(uTime*.23+sin(v*9.+.3)*.027+v*.012+aPhaseShift);
-  vLife=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle))*(aPhaseShift>.1?.68:1.);
+  vLife=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle))*(aPhaseShift>.1?.68:1.)*breakingSections(v,uTime,aPhaseShift);
   float front=.34-.33*cycle
       +.016*sin(v*22.+uTime*1.44513262)
       +.007*sin(v*49.-uTime*2.89026524)

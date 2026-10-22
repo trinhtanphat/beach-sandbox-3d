@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v10**: the shoreward wave trains still break into 3D foam and 460 GPU spray droplets, now with finer trailing whitewater streaks and a separate darkened **wet-sand film** after the wave retreats. Whitewater intensity (30–180%) adjusts white foam but does not incorrectly erase wet sand. The CPU run-up model matches the swash shader's longshore phase. Old portable island files remain compatible. This is stylized WebGL, not CFD.
+- **Animated surf v11**: shoreward-moving swells now **break in staggered coastline sections** rather than uniformly along a white stripe. One periodic section-strength function is shared by the water shader, both raised curling 3D crest trains and 460 GPU foam particles, so the visible breaking sections stay aligned and repeat smoothly. The wet-sand retreat and independent 30–180% whitewater controls remain. All graphics are procedural WebGL, not CFD.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
