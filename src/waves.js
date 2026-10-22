@@ -99,6 +99,18 @@ export function sectionBreak(time, along=0, shift=0) {
   const u=clamp((field-.27)/.50,0,1);
   return .16+.84*ease(u);
 }
+/**
+ * CPU analogue for the trailing wake used in the water fragment shader.
+ * Breaker foam grows just behind the lip and disappears as it dissipates.
+ */
+export function trailingWake(distance) {
+  if (!Number.isFinite(distance)) return 0;
+  return ease((distance-.008)/.022) * (1-ease((distance-.100)/.085));
+}
+export function shorewashPulse(time,alongShore=0,shift=0) {
+  const phase=breakerPhase(time,alongShore,shift);
+  return ease((phase-.56)/.18)*(1-ease((phase-.84)/.16));
+}
 export const breakSectionGLSL = `
 float breakingSections(float along,float time,float shift) {
   float turn=time*1.44513262+shift*6.2831853;
@@ -132,14 +144,21 @@ float frontAt(vec2 uv,float shift){
                 +.007*sin(uv.y*49.-uTime*2.89026524)
                 +.004*sin(uv.y*94.+uTime*4.33539786);
 }
-float surfSheet(float x,float front,float n) {
-  float thin=exp(-pow((x-front)/(.018+.009*uWave),2.));
-  // Turbulent, lacy spray trails BEHIND the inward-moving break.
-  float back=smoothstep(front+.008,front+.030,x)
-             *(1.-smoothstep(front+.090,front+.170,x));
-  float bubbles=smoothstep(.27,.77,n);
-  float filament=pow(max(0.,sin(x*126.0+uTime*1.6+n*5.0)),10.0);
-  return thin*(.93+.07*n)+back*(bubbles*.30+filament*.12);
+float surfSheet(float x,float front,float n,vec2 uv) {
+  // Narrow white breaking lip and a lacy, dissolving foam wake behind it.
+  float d=x-front;
+  float thin=exp(-pow(d/(.015+.009*uWave),2.));
+  float back=smoothstep(.008,.030,d)*(1.-smoothstep(.100,.185,d));
+  // Advect the foam texture shoreward (toward decreasing UV x) while
+  // introducing lower-frequency turbulence along the beach.
+  vec2 flow=vec2(uv.x*171.+uTime*9.,uv.y*118.-uTime*1.7);
+  float cells=snoise(flow);
+  float lace=snoise(flow*.48+vec2(14.2,-6.1));
+  float filaments=pow(max(0.,sin((d*104.)+lace*8.+uv.y*37.)),12.);
+  float bubbles=smoothstep(.36,.72,cells);
+  float ribbons=smoothstep(.44,.70,lace);
+  float wake=back*(.38*bubbles+.18*ribbons+.20*filaments);
+  return thin*(.78+.22*smoothstep(.18,.74,n)) + wake;
 }
 void main(){
   vec2 uv=vUv;
@@ -165,12 +184,23 @@ void main(){
   float cycleB=fract(cycleA+.56);
   float lifeA=smoothstep(0.,.12,cycleA)*(1.-smoothstep(.77,1.,cycleA));
   float lifeB=smoothstep(0.,.12,cycleB)*(1.-smoothstep(.77,1.,cycleB));
-  float foamA=surfSheet(uv.x,frontA,strand)*lifeA*breakingSections(uv.y,uTime,0.);
-  float foamB=surfSheet(uv.x,frontB,micro)*.43*lifeB*breakingSections(uv.y,uTime,.56);
+  float foamA=surfSheet(uv.x,frontA,strand,uv)*lifeA*breakingSections(uv.y,uTime,0.);
+  float foamB=surfSheet(uv.x,frontB,micro,uv)*.43*lifeB*breakingSections(uv.y,uTime,.56);
+  // The trough on the seaward face of each crest adds depth to the wave;
+  // foam remains on the shoreward side and dissolves into the lagoon.
+  float troughA=exp(-pow((uv.x-frontA+.032)/.028,2.))*lifeA;
+  float troughB=exp(-pow((uv.x-frontB+.025)/.029,2.))*lifeB;
+  sea*=1.-(.105*troughA+.05*troughB)*clamp(uWave,0.,1.6);
   // Low-frequency turbulence opens irregular gaps and softens the white edge.
   float breakSection=snoise(uv*vec2(21.,83.)+vec2(uTime*.11,-uTime*.09));
   float foam=clamp((foamA+foamB)*(.66+.52*breakSection),0.,1.);
-  float shorewash=(1.-smoothstep(.008,.030,uv.x))*(.25+.10*snoise(uv*vec2(20.,61.)+uTime));
+  // Do not paint a permanent white line on the coastline. Wash flares when
+  // the primary/secondary fronts reach the beach, then drains between sets.
+  float pulseA=smoothstep(.56,.74,cycleA)*(1.-smoothstep(.84,1.,cycleA));
+  float pulseB=smoothstep(.56,.74,cycleB)*(1.-smoothstep(.84,1.,cycleB));
+  float splash=clamp(pulseA+.48*pulseB,0.,1.);
+  float shorewash=(1.-smoothstep(.008,.030,uv.x))*(.035+.39*splash)
+                  *(.84+.16*snoise(uv*vec2(20.,61.)+uTime));
   foam=clamp((foam+shorewash)*(.46+.54*clamp(uWave/.8,0.,1.5))*uFoam,0.,1.);
   sea=mix(sea,vec3(.97,1.,.99),foam*.98);
   float spec=pow(max(0.,sin(uv.x*195.+uTime*1.8)*sin(uv.y*220.-uTime)),24.);
@@ -237,13 +267,13 @@ void main(){
                  *(1.-smoothstep(front+.26,front+.42,vUv.x));
   float retreatFade=1.-smoothstep(.75,.99,phase);
   // Wet sand must persist even at minimum foam intensity: it is not whitewater.
-  float wetAlpha=wetFilm*.19*retreatFade;
+  float wetAlpha=wetFilm*.21*retreatFade;
   float shoreFade=smoothstep(.008,.050,vUv.x)*(1.-smoothstep(.975,1.,vUv.x));
   foamAlpha*=uFoam*shoreFade;
   wetAlpha*=shoreFade;
   vec3 foamColor=mix(vec3(.32,.72,.69),vec3(.98,1.,.97),
                       clamp(max(white*.96,lingering*.88)+bubbles*.28,0.,1.));
-  vec3 wetColor=vec3(.35,.54,.50);
+  vec3 wetColor=vec3(.43,.40,.31);
   float totalAlpha=clamp(foamAlpha*(.82+.18*uWave)+wetAlpha,0.,.94);
   float whiteFraction=foamAlpha/(foamAlpha+wetAlpha+.0001);
   vec3 color=mix(wetColor,foamColor,whiteFraction);
