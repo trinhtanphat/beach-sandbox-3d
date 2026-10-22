@@ -8,6 +8,7 @@ import { makeReefField } from './reefs.js';
 import { createPalmGrove } from './palms.js';
 import { createSurfSpray } from './surf-spray.js';
 import { createBreakerLip } from './breaker-lip.js';
+import { createFrameMetrics } from './frame-metrics.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
@@ -608,10 +609,38 @@ function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;
 window.addEventListener('resize',resize);
 updateLife();resize();
 const watch = new THREE.Clock();
+// Opt-in diagnostic: open /?perf=1. No telemetry is sent or stored.
+const showFrameMetrics=new URLSearchParams(window.location.search).get('perf')==='1';
+const frameMetrics=showFrameMetrics?createFrameMetrics():null;
+let perfPanel=null,perfText=null,perfRefreshElapsed=0;
+if(showFrameMetrics){
+  perfPanel=document.createElement('section');
+  perfPanel.id='perf-panel';
+  perfPanel.className='perf-panel';
+  perfPanel.setAttribute('aria-label','Local frame-pacing diagnostics');
+  perfPanel.innerHTML='<strong>Frame pacing (local only)</strong><span id="perf-readout">Measuring…</span><small>12 s rolling RAF timings · not GPU timer data</small>';
+  document.querySelector('.app-shell').append(perfPanel);
+  perfText=perfPanel.querySelector('#perf-readout');
+}
+const clockNode=document.getElementById('clock'),sunPosition=document.getElementById('sun-position');
+let sunPalette=null,uiRefreshElapsed=.3;
 let fpsSeconds=0,fpsFrames=0,lowFpsSeconds=0,highFpsSeconds=0;
 function animate(){requestAnimationFrame(animate);
  const rawDelta=watch.getDelta();
  const dt=Math.min(rawDelta,.08);
+ if(frameMetrics){
+   frameMetrics.addFrame(rawDelta,{hidden:document.hidden});
+   perfRefreshElapsed+=rawDelta;
+   if(perfRefreshElapsed>=2.5){
+     perfRefreshElapsed=0;
+     const stats=frameMetrics.snapshot();
+     perfPanel.dataset.ready=stats.ready?'true':'false';
+     perfPanel.dataset.frames=String(stats.frames);
+     perfText.textContent=stats.ready
+       ?`Average ${stats.meanFps.toFixed(1)} FPS · p95 ${stats.p95Ms.toFixed(1)} ms · p99 ${stats.p99Ms.toFixed(1)} ms · ${stats.frames} frames · DPR ${renderer.getPixelRatio().toFixed(2)}`
+       :'Collecting visible frames…';
+   }
+ }
  fpsSeconds+=rawDelta;fpsFrames++;
  if(fpsSeconds>=1){
   const measuredFps=fpsFrames/fpsSeconds;
@@ -643,17 +672,25 @@ function animate(){requestAnimationFrame(animate);
  ambient.intensity=1.2+1.25*day;
  sunlight.intensity=.85+2.35*day;
  sunlight.position.set(12*Math.cos((hours-6)/12*Math.PI),9+10*day,10);
- sunlight.color.set(day>.45?'#fff4d8':'#ffba84');
+ const palette=day>.45?'day':day>.4?'transition':'dusk';
+ if(palette!==sunPalette){
+   sunlight.color.set(day>.45?'#fff4d8':'#ffba84');
+   atmosphere.color.set(day>.45?'#a3eff2':'#ffa7a1');
+   scene.fog.color.set(day>.4?'#edece5':'#d7b1ab');
+   scene.background.set(day>.4?'#eeece6':'#d9beb6');
+   sunPalette=palette;
+ }
  atmosphere.intensity=.35+day*.48;
- atmosphere.color.set(day>.45?'#a3eff2':'#ffa7a1');
  renderer.toneMappingExposure=1.18+.27*day;
- scene.fog.color.set(day>.4?'#edece5':'#d7b1ab');
- scene.background.set(day>.4?'#eeece6':'#d9beb6');
- document.getElementById('clock').textContent=clockLabel(hours);
- const dayPhase=clamp((hours-6)/12,0,1);
- const sunPosition=document.getElementById('sun-position');
- sunPosition.style.left=`${dayPhase*93}%`;
- sunPosition.style.top=`${-4-34*Math.sin(dayPhase*Math.PI)}px`;
+ // Time labels and decorative sun position do not need a DOM write at 60Hz.
+ uiRefreshElapsed+=rawDelta;
+ if(uiRefreshElapsed>=.25){
+   uiRefreshElapsed=0;
+   clockNode.textContent=clockLabel(hours);
+   const dayPhase=clamp((hours-6)/12,0,1);
+   sunPosition.style.left=`${dayPhase*93}%`;
+   sunPosition.style.top=`${-4-34*Math.sin(dayPhase*Math.PI)}px`;
+ }
  for(const b of boats){if(!b.parent)continue;b.position.y=.06+Math.sin(elapsed*2.1+b.userData.phase)*.025*waveHeight;b.rotation.z=Math.sin(elapsed*1.45+b.userData.phase)*.05*waveHeight;}
  controls.update();renderer.render(scene,camera);
 }
