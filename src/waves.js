@@ -34,8 +34,16 @@ export function waveEnvelope(phase) {
   const spent=1-ease((p-.77)/.23);
   return born*spent;
 }
+export function frontWarp(time,alongShore=0) {
+  // Two long and one fine alongshore swell create curved, scalloped crests.
+  // Used unchanged in all GPU surf passes to prevent foam/geometry separation.
+  const turn=2*Math.PI*SURF_CYCLE_RATE*time;
+  return .016*Math.sin(alongShore*22+turn)
+       + .007*Math.sin(alongShore*49-2*turn)
+       + .004*Math.sin(alongShore*94+3*turn);
+}
 export function breakerPosition(time, alongShore=0) {
-  return .34-.33*breakerPhase(time,alongShore);
+  return .34-.33*breakerPhase(time,alongShore)+frontWarp(time,alongShore);
 }
 // All shader phases remain consistent with this deterministic JS model.
 // Because y-perturbations are in GLSL, the CPU check is for the centre line.
@@ -50,8 +58,9 @@ float phaseAt(vec2 uv) {
 }
 float frontAt(vec2 uv, float phaseShift) {
   float phase=fract(phaseAt(uv)+phaseShift);
-  return .34-.33*phase+.005*sin(uv.y*64.0+uTime*.60)
-                   +.004*sin(uv.y*151.0-uTime*.47);
+  return .34-.33*phase+.016*sin(uv.y*22.+uTime*1.44513262)
+                   +.007*sin(uv.y*49.-uTime*2.89026524)
+                   +.004*sin(uv.y*94.+uTime*4.33539786);
 }
 void main() {
   vUv = uv;
@@ -95,8 +104,9 @@ float snoise(vec2 p){
 }
 float frontAt(vec2 uv,float shift){
   float cycle=fract(uTime*.23+sin(uv.y*9.0+.3)*.027+uv.y*.012+shift);
-  return .34-.33*cycle+.005*sin(uv.y*64.+uTime*.60)
-                +.004*sin(uv.y*151.-uTime*.47);
+  return .34-.33*cycle+.016*sin(uv.y*22.+uTime*1.44513262)
+                +.007*sin(uv.y*49.-uTime*2.89026524)
+                +.004*sin(uv.y*94.+uTime*4.33539786);
 }
 float surfSheet(float x,float front,float n) {
   float thin=exp(-pow((x-front)/(.018+.009*uWave),2.));

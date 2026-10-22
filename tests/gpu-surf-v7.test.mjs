@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  createBreakerLip, lipSample, LIP_COLS,LIP_ROWS,breakerLipVertexShader
+  createBreakerLip, lipSample, LIP_COLS,LIP_ROWS,LIP_TRAINS,breakerLipVertexShader
 } from '../src/breaker-lip.js';
 import {
   createSurfSpray, SPRAY_PARTICLES, surfSprayPoint, sprayVertexShader
@@ -15,7 +15,7 @@ test('GPU crest stays statically anchored while uniforms animate',()=>{
     const position=lip.mesh.geometry.getAttribute('position');
     const original=Float32Array.from(position.array);
     const version=position.version;
-    assert.equal(lip.vertexCount,(LIP_ROWS+1)*(LIP_COLS+1));
+    assert.equal(lip.vertexCount,(LIP_ROWS+1)*(LIP_COLS+1)*LIP_TRAINS);
     assert.equal(lip.mesh.geometry.getAttribute('aWaterWidth').count,lip.vertexCount);
     for(let i=0;i<350;i++)lip.update(i/60,.1+(i%15)*.1,.75);
     assert.equal(position.version,version,'geometry uploaded again every frame');
@@ -38,7 +38,7 @@ test('GPU sea spray uploads static anchors once, uses timer uniforms only',()=>{
     const original=Float32Array.from(pos.array);
     const version=pos.version;
     assert.equal(spray.count,SPRAY_PARTICLES);
-    for(const name of ['aWaterWidth','aAlong','aSeed','aRandom']){
+    for(const name of ['aWaterWidth','aAlong','aSeed','aRandom','aPhaseShift']){
       assert.equal(geo.getAttribute(name).count,SPRAY_PARTICLES);
     }
     for(let i=0;i<350;i++)spray.update(i/60,1.2);

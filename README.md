@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Original 3D diorama with curved sandy shoreline, forest of 840 procedurally placed trees, rock reefs and sailing boats.
-- **Animated surf v7**: the shore-following curling breaker (2,010 vertices) and 460 circular foam particles are now animated entirely in GPU vertex shaders, not rewritten/uploaded by JavaScript every frame. Lifecycles, whitewash, sunlight caustics and dynamic wave height are preserved. Ocean motion is still an artistic WebGL simulation, not a CFD fluid solver.
+- **Animated surf v8**: two raised 3D breaker trains (one stronger coastal break, one weaker trailing swell) share a GPU mesh, with synchronized staggered foam spray, scalloped shoreline fronts and continuous 4.35-second lifecycles. Natural longshore variation replaces mechanically straight white bands. GPU vertex animation from v7 remains; no CPU vertex reuploads per frame. The sea remains a stylized WebGL simulation, not CFD.
 - **Living ecosystem**: a 14-bird animated seabird flock in a single GPU draw call, and 360 procedurally placed colorful underwater reef objects (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
@@ -45,8 +45,8 @@ npm run preview
 - `src/simulation.js` — small deterministic geometry/math API, tested with Node's test runner.
 - `src/main.js` — procedural terrain and vegetation generation, 3D object placement, island editing, playback controls.
 - `src/waves.js` — ocean/swash GLSL shaders sharing a wave-cycle model, repeatable breaker-front and swash run-up/retreat.
-- `src/surf-spray.js` — 460 GPU-animated soft-edged foam droplets generated from a procedural 32×32 alpha texture; static coast anchors and random seeds, time/wave uniforms only at runtime.
-- `src/breaker-lip.js` — GPU vertex shader curls a static 200×9 tessellated coastline crest using stored coast anchors and offshore widths; no per-frame vertex array upload.
+- `src/surf-spray.js` — 460 GPU-animated soft-edged droplets, divided between two consistent wave trains, generated from a procedural 32×32 alpha texture; static coast anchors and random seeds, time/wave uniforms only.
+- `src/breaker-lip.js` — one GPU mesh contains two 200×9-segment curling crests with phase offsets 0 / 0.56 and relative strength 1 / 0.68; no per-frame vertex upload, two waves in one draw call.
 - `src/island-state.js` — versioned, bounded save format with validation and round-trip tests.
 - `src/ambience.js` — deterministic seagull animation and gesture-triggered synthesized surf/chirp Web Audio.
 - `src/reefs.js` — GPU-instanced coral and reef rocks.

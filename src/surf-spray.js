@@ -3,15 +3,14 @@
  * are uploaded only once. CPU sample remains available for deterministic tests.
  */
 import { DEPTH, HALF_WIDTH, shoreline, seededRandom } from './simulation.js';
-import { breakerPhase, waveEnvelope } from './waves.js';
+import { breakerPhase, breakerPosition, frontWarp, waveEnvelope } from './waves.js';
 export const SPRAY_PARTICLES=460;
 
-export function surfSprayPoint(time, z, seed=0, strength=.6) {
+export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
   const v=(z+DEPTH/2)/DEPTH;
-  const phase=breakerPhase(time,v);
-  const life=waveEnvelope(phase);
-  const front=.34-.33*phase+.005*Math.sin(v*64+time*.6)
-            +.004*Math.sin(v*151-time*.47);
+  const phase=breakerPhase(time,v,shift);
+  const life=waveEnvelope(phase)*(shift>.1?.68:1);
+  const front=.34-.33*phase+frontWarp(time,v);
   const rand=Math.sin(seed*127.1+z*311.7)*43758.5453;
   const r=rand-Math.floor(rand);
   const coast=shoreline(z)-.1;
@@ -28,15 +27,18 @@ attribute float aWaterWidth;
 attribute float aAlong;
 attribute float aSeed;
 attribute float aRandom;
+attribute float aPhaseShift;
 uniform float uTime;
 uniform float uWave;
 varying float vLife;
 void main(){
   float v=aAlong;
-  float cycle=fract(uTime*.23+sin(v*9.+.3)*.027+v*.012);
-  vLife=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle));
-  float front=.34-.33*cycle+.005*sin(v*64.+uTime*.6)
-              +.004*sin(v*151.-uTime*.47);
+  float cycle=fract(uTime*.23+sin(v*9.+.3)*.027+v*.012+aPhaseShift);
+  vLife=smoothstep(0.,.12,cycle)*(1.-smoothstep(.77,1.,cycle))*(aPhaseShift>.1?.68:1.);
+  float front=.34-.33*cycle
+      +.016*sin(v*22.+uTime*1.44513262)
+      +.007*sin(v*49.-uTime*2.89026524)
+      +.004*sin(v*94.+uTime*4.33539786);
   vec3 p=position;
   p.x+=aWaterWidth*(front+.004+.065*aRandom);
   p.y=.155+.012*sin(uTime*2.4+aSeed)+aRandom*.055*uWave;
@@ -62,6 +64,7 @@ export function createSurfSpray(THREE,scene) {
   const along=new Float32Array(SPRAY_PARTICLES);
   const seeds=new Float32Array(SPRAY_PARTICLES);
   const randoms=new Float32Array(SPRAY_PARTICLES);
+  const phaseShifts=new Float32Array(SPRAY_PARTICLES);
   for(let i=0;i<SPRAY_PARTICLES;i++){
     const seed=i+1;
     const z=(rand()-.5)*(DEPTH-.35);
@@ -75,6 +78,7 @@ export function createSurfSpray(THREE,scene) {
     along[i]=(z+DEPTH/2)/DEPTH;
     seeds[i]=seed;
     randoms[i]=r-Math.floor(r);
+    phaseShifts[i]=(i%3===0)?.56:0;
   }
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
@@ -82,6 +86,7 @@ export function createSurfSpray(THREE,scene) {
   geometry.setAttribute('aAlong',new THREE.BufferAttribute(along,1));
   geometry.setAttribute('aSeed',new THREE.BufferAttribute(seeds,1));
   geometry.setAttribute('aRandom',new THREE.BufferAttribute(randoms,1));
+  geometry.setAttribute('aPhaseShift',new THREE.BufferAttribute(phaseShifts,1));
   // Procedurally generated circular alpha — no external image request.
   const texSize=32;
   const pixels=new Uint8Array(texSize*texSize*4);
