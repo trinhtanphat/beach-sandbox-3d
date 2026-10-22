@@ -9,6 +9,7 @@ import { createPalmGrove } from './palms.js';
 import { createSurfSpray } from './surf-spray.js';
 import { createBreakerLip } from './breaker-lip.js';
 import { createFrameMetrics } from './frame-metrics.js';
+import { createAdaptiveResolution } from './adaptive-resolution.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
@@ -624,7 +625,8 @@ if(showFrameMetrics){
 }
 const clockNode=document.getElementById('clock'),sunPosition=document.getElementById('sun-position');
 let sunPalette=null,uiRefreshElapsed=.3;
-let fpsSeconds=0,fpsFrames=0,lowFpsSeconds=0,highFpsSeconds=0;
+const adaptiveResolution=createAdaptiveResolution({cap:initialDprCap,min:Math.min(.85,initialDprCap)});
+let fpsSeconds=0,fpsFrames=0;
 function animate(){requestAnimationFrame(animate);
  const rawDelta=watch.getDelta();
  const dt=Math.min(rawDelta,.08);
@@ -641,22 +643,19 @@ function animate(){requestAnimationFrame(animate);
        :'Collecting visible frames…';
    }
  }
- fpsSeconds+=rawDelta;fpsFrames++;
+ if(document.hidden||rawDelta>1.5){
+   fpsSeconds=0;fpsFrames=0;
+   adaptiveResolution.observe({fps:0,dpr:renderer.getPixelRatio(),hidden:true});
+   if(frameMetrics)frameMetrics.reset();
+ }else{
+   fpsSeconds+=rawDelta;fpsFrames++;
+ }
  if(fpsSeconds>=1){
   const measuredFps=fpsFrames/fpsSeconds;
   document.getElementById('fps-label').textContent=Math.round(measuredFps)+' FPS';
-  // Retain sharpness on GPU hardware; gradually reduce rendering resolution
-  // only after sustained low FPS (important on older integrated graphics).
-  lowFpsSeconds=measuredFps<23?lowFpsSeconds+fpsSeconds:0;
-  highFpsSeconds=measuredFps>53?highFpsSeconds+fpsSeconds:0;
-  const dpr=renderer.getPixelRatio();
-  if(lowFpsSeconds>=4&&dpr>.81){
-    renderer.setPixelRatio(Math.max(.8,dpr*.84));
-    resize();lowFpsSeconds=0;highFpsSeconds=0;
-  } else if(highFpsSeconds>=8&&dpr<initialDprCap-.01){
-    renderer.setPixelRatio(Math.min(initialDprCap,dpr*1.12));
-    resize();lowFpsSeconds=0;highFpsSeconds=0;
-  }
+  // Only resize after sustained poor/good frame rates. Ignore hidden tab stalls.
+  const nextDpr=adaptiveResolution.observe({fps:measuredFps,seconds:fpsSeconds,dpr:renderer.getPixelRatio()});
+  if(nextDpr!==null){renderer.setPixelRatio(nextDpr);resize();}
   fpsSeconds=0;fpsFrames=0;
  }
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}
