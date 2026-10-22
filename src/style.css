@@ -17,3 +17,13 @@
  .bottom-center .pause-control{width:29px;height:29px}
 }
 @media(max-width:360px){.bottom-center .zoom-btn{display:none}}
+
+/* Cinematic tropical daylight: brighter glass, more saturated focus colors. */
+.app-shell{background:radial-gradient(ellipse at 66% 30%,#fffdf7 0%,#e9ede9 56%,#d4dcd8 100%)}
+.top-right #btn-sound{background:#e5f4e9;color:#367967;transition:background .18s,color .18s}
+.top-right #btn-sound[aria-pressed="true"]{background:#45a99c;color:white;box-shadow:0 2px 12px #55ac9b66}
+.tool.active{background:linear-gradient(135deg,#f2a66a,#f58d69)}
+.day-card #sun-hour{width:100%;margin-top:9px}
+.right-stack .glass-card{background:rgba(255,253,246,.92)}
+.top-left .brand-mark{color:#fa9b62;background:#f5fff4}
+@media(max-width:620px){.top-right #btn-sound{padding:8px 7px;font-size:9px}.right-stack{top:71px}}

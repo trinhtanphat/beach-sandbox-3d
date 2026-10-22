@@ -63,29 +63,44 @@ void main() {
   float caustic1 = wavelet(vUv*vec2(152.,126.) + uTime*vec2(.86,-.44));
   float caustic2 = wavelet(vUv*vec2(207.,151.) + uTime*vec2(-.57,.3));
   float light = pow(max(0.0,(caustic1+caustic2)*.5),4.0);
-  sea += vec3(.29,.39,.23) * light * (.24 + .76*(1.0-depth));
+  // Irregular sun-lit caustics and reef shadows suspended below clear water.
+  sea += vec3(.37,.51,.33) * light * (.24 + .76*(1.0-depth));
+  vec2 reefUV=vUv*vec2(19.0,34.0);
+  vec2 cell=floor(reefUV);
+  vec2 within=fract(reefUV)-.5;
+  float reefSeed=hash21(cell);
+  float reefMask=smoothstep(.87,.97,reefSeed)*exp(-dot(within,within)*8.0);
+  reefMask*=smoothstep(.07,.35,vUv.x)*(1.0-smoothstep(.85,1.0,vUv.x));
+  sea=mix(sea,vec3(.08,.42,.36),reefMask*.55);
+  float glint=pow(max(0.0,sin(vUv.x*265.0+uTime*2.4+vUv.y*33.0)*
+      sin(vUv.y*280.0-uTime*1.3)),26.0);
+  sea+=vec3(.13,.20,.13)*glint*(1.0-depth);
 
   // Wave trains move from offshore to the beach, grow as they enter the
   // shallow zone, and collapse into irregular white aerated foam.
   float surf = 1.0 - smoothstep(.035,.31,vUv.x);
   float phase = vUv.x*48.0+uTime*4.15 + sin(vUv.y*31.0+sin(vUv.y*17.0)*.8)*.74;
   float breaker = pow(max(0.0,sin(phase)),9.0);
-  float ribbons = pow(max(0.0,sin(vUv.x*129.0 + uTime*7.3 +
-            sin(vUv.y*51.0+uTime*.45)*1.7)),13.0);
+  // Crest lines feather irregularly along the curved beach.
+  float chaotic=sin(vUv.y*53.0+uTime*.44)*1.24+
+                sin(vUv.y*127.0-uTime*.7)*.43;
+  float ribbons = pow(max(0.0,sin(vUv.x*129.0 + uTime*7.3+chaotic)),13.0);
+  float longFoam=pow(max(0.0,sin(vUv.x*34.0+uTime*2.5+chaotic*.46)),20.0);
   float freckles = smoothstep(.65,.94,hash21(floor(vUv*vec2(740.,230.) +
             vec2(uTime*2.0,0.0))));
-  float foam = breaker * surf * (.57 + .36*freckles) +
-               ribbons * surf *.30*(.6+freckles*.4);
+  float foam = breaker * surf * (.74 + .24*freckles) +
+               ribbons * surf *.48*(.6+freckles*.4) +
+               longFoam * surf * .30;
   foam *= .52 + uWave*.49;
   float coastWash = (1.0-smoothstep(.0,.018,vUv.x)) *
                     (.18+.19*sin(uTime*3.4+vUv.y*37.0));
   foam = clamp(foam+coastWash,0.,.88);
-  sea = mix(sea,vec3(.93,.99,.92),foam);
+  sea = mix(sea,vec3(.95,1.0,.96),foam);
   float sparkle = pow(max(0.,sin(vUv.x*198.+uTime*1.6) *
                      sin(vUv.y*137.-uTime*.8)),16.) * (.05+.14*depth);
   sea += vec3(.45,.55,.48)*sparkle*uDay;
   sea *= .74 + uDay*.26;
-  gl_FragColor = vec4(sea, .93);
+  gl_FragColor = vec4(sea, .91);
 }`;
 
 export const swashVertexShader = `
@@ -116,7 +131,7 @@ void main() {
   float front=.87-(.30+.23*uWave)*phase;
   front+=.020*sin(vUv.y*76.+uTime*.7)+.012*sin(vUv.y*144.-uTime);
   float d=vUv.x-front;
-  float thinEdge = exp(-pow(d/(.023+.007*uWave),2.0));
+  float thinEdge = exp(-pow(d/(.028+.013*uWave),2.0));
   float bubbly = sin(vUv.y*640.+sin(vUv.x*110.)*4.0+uTime*2.3);
   float grain = .52+.48*hash21(floor(vUv*vec2(225.,710.)+vec2(0.,uTime*2.)));
   float trails = (1.0-smoothstep(.015,.24,d))*smoothstep(-.025,.03,d);
@@ -127,7 +142,7 @@ void main() {
   // The water film behind a breaker wets the sand, then fades.
   vec3 color=mix(vec3(.27,.71,.67),vec3(.97,1.0,.91),
                  clamp(alpha*1.5,0.,1.));
-  alpha=clamp(alpha*(.55+.35*uWave)+wash*.10,0.,.78);
+  alpha=clamp(alpha*(.68+.38*uWave)+wash*.14,0.,.90);
   alpha*=smoothstep(.005,.035,vUv.x) *
          (1.0-smoothstep(.965,1.0,vUv.x));
   gl_FragColor=vec4(color*(.8+.2*uDay),alpha);

@@ -3,6 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WIDTH, DEPTH, HALF_WIDTH, HALF_DEPTH, clamp, smoothstep, shoreline, landDistance, noise, terrainHeight, forestWeight, seededRandom, brushInfluence, daylight, clockLabel } from './simulation.js';
 import { oceanVertexShader, oceanFragmentShader, swashVertexShader, swashFragmentShader } from './waves.js';
 import { createSnapshot, parseSnapshot, SAVE_KEY } from './island-state.js';
+import { BIRD_COUNT, createSeagulls, createOceanAudio } from './ambience.js';
+import { makeReefField } from './reefs.js';
+import { createPalmGrove } from './palms.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
@@ -16,7 +19,7 @@ try {
  document.querySelector('.app-shell').append(warning);
  throw error;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.45));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth<650?1.35:1.65));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -24,7 +27,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.65;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#e6e5e2');
+scene.background = new THREE.Color('#edeae3');
+scene.fog = new THREE.FogExp2('#f3ede1', .008);
 const aspect = innerWidth / innerHeight;
 const VIEW_SIZE = 13.9;
 const camera = new THREE.OrthographicCamera(-VIEW_SIZE * aspect / 2, VIEW_SIZE * aspect / 2, VIEW_SIZE / 2, -VIEW_SIZE / 2, 0.1, 150);
@@ -43,6 +47,9 @@ controls.update();
 const ambient = new THREE.HemisphereLight('#fff9e8', '#94b0a9', 2.45);
 scene.add(ambient);
 const sunlight = new THREE.DirectionalLight('#fff0d2', 3.2);
+const atmosphere = new THREE.DirectionalLight('#a8eeef', .65);
+atmosphere.position.set(7,8,-9);
+scene.add(atmosphere);
 sunlight.position.set(-5, 17, 11);
 sunlight.castShadow = true;
 sunlight.shadow.mapSize.set(1024, 1024);
@@ -57,6 +64,18 @@ sunlight.shadow.normalBias = .018;
 scene.add(sunlight);
 
 const rand = seededRandom(20261021);
+const gulls=createSeagulls(THREE,scene);
+const oceanAudio=createOceanAudio();
+const soundButton=document.getElementById('btn-sound');
+soundButton.addEventListener('click',async()=>{
+ try{const enabled=await oceanAudio.toggle();soundButton.textContent=enabled?'♫ Sound on':'♪ Sound off';soundButton.setAttribute('aria-pressed',String(enabled));}
+ catch(error){toast('Ocean audio unavailable: '+error.message);}
+});
+document.getElementById('ambient-volume').addEventListener('input',event=>{
+ const v=Number(event.target.value)/100;
+ oceanAudio.setVolume(v);
+ document.getElementById('ambient-volume-value').textContent=Math.round(v*100)+'%';
+});
 const boxMat = new THREE.MeshStandardMaterial({ color: '#c6b491', roughness: 1 });
 const base = new THREE.Mesh(new THREE.BoxGeometry(WIDTH + .07, .57, DEPTH + .07), boxMat);
 base.position.y = -.66;
@@ -120,6 +139,7 @@ seaGeometry.setAttribute('position',new THREE.Float32BufferAttribute(seaPosition
 seaGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(seaUV,2));
 seaGeometry.setIndex(seaIndices);
 seaGeometry.computeVertexNormals();
+const reefField=makeReefField(THREE,scene,terrainHeight,shoreline);
 const waveUniforms={uTime:{value:0},uWave:{value:.6},uDay:{value:1}};
 const waterMaterial = new THREE.ShaderMaterial({
   uniforms:waveUniforms,side:THREE.DoubleSide,transparent:true,depthWrite:false,
@@ -196,6 +216,7 @@ for(let i=0;i<FOREST_COUNT;i++) {
 }
 for(const mesh of [leaves,smallLeaves,trunks]) {mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;scene.add(mesh);}
 leaves.instanceColor.needsUpdate=true;smallLeaves.instanceColor.needsUpdate=true;
+const palmGrove=createPalmGrove(THREE,scene,shoreline,terrainHeight);
 
 const rockGeometry=new THREE.DodecahedronGeometry(1,0);
 function createRock(x,z,sc=1,rockMaterial=sandRockMaterial){
@@ -557,6 +578,8 @@ document.getElementById('btn-shot').addEventListener('click',exportImage);
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('Restore the island to its original landscape?'))reset();});
 document.getElementById('wave').addEventListener('input',e=>{waveHeight=Number(e.target.value);document.getElementById('wave-height').textContent=`${waveHeight.toFixed(1)} m`;document.querySelector('.status-dot').textContent=waveHeight>1?'● Energetic':'● Calm';});
 document.getElementById('speed').addEventListener('input',e=>{speed=Number(e.target.value);document.getElementById('speed-label').textContent=`${speed.toFixed(1)}×`;});
+document.getElementById('sun-hour').addEventListener('input',e=>{hours=Number(e.target.value);});
+document.getElementById('bird-count').textContent=BIRD_COUNT+' flying';
 function togglePause(){paused=!paused;document.getElementById('btn-pause').textContent=paused?'▶':'Ⅱ';document.getElementById('btn-pause').setAttribute('aria-label',paused?'Resume simulation':'Pause simulation');}
 document.getElementById('btn-pause').addEventListener('click',togglePause);
 function resetCamera(){camera.position.set(17,16,21);controls.target.set(0,0,0);camera.zoom=1;camera.updateProjectionMatrix();controls.update();document.getElementById('zoom-label').textContent='100%';}
@@ -587,14 +610,20 @@ function animate(){requestAnimationFrame(animate);
  }
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}
  waveUniforms.uTime.value=elapsed;
+ gulls.update(elapsed);
+ oceanAudio.update(elapsed,waveHeight,paused);
  waveUniforms.uWave.value=waveHeight;
  waveUniforms.uDay.value=daylight(hours);
  const day=daylight(hours);
  ambient.intensity=1.2+1.25*day;
  sunlight.intensity=.85+2.35*day;
  sunlight.position.set(12*Math.cos((hours-6)/12*Math.PI),9+10*day,10);
- sunlight.color.set(day>.35?'#fff4d8':'#fbcba9');
- scene.background.set(day>.4?'#e6e5e2':'#b8b3b1');
+ sunlight.color.set(day>.45?'#fff4d8':'#ffba84');
+ atmosphere.intensity=.35+day*.48;
+ atmosphere.color.set(day>.45?'#a3eff2':'#ffa7a1');
+ renderer.toneMappingExposure=1.18+.27*day;
+ scene.fog.color.set(day>.4?'#edece5':'#d7b1ab');
+ scene.background.set(day>.4?'#eeece6':'#d9beb6');
  document.getElementById('clock').textContent=clockLabel(hours);
  const dayPhase=clamp((hours-6)/12,0,1);
  const sunPosition=document.getElementById('sun-position');
