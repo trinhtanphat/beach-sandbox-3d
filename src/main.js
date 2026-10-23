@@ -10,6 +10,7 @@ import { createSurfSpray } from './surf-spray.js';
 import { createBreakerLip } from './breaker-lip.js';
 import { createFrameMetrics } from './frame-metrics.js';
 import { createAdaptiveResolution } from './adaptive-resolution.js';
+import { boatPose } from './ocean-surface.js';
 import { FOREST_COUNT, SEA_LEVEL, COASTAL_ZONES, planForest, submergedCenter, canPlace } from './world-layout.js';
 import './style.css';
 
@@ -302,6 +303,7 @@ function createBoat(x,z,scale=1) {
  const mast=new THREE.Mesh(boatMastGeo,boatMastMat);mast.position.y=.4;boat.add(mast);
  const sail=new THREE.Mesh(boatSailGeo,boatSailMat);boat.add(sail);
  boat.position.set(x,.08,z);boat.rotation.y=rand()*6.28;boat.userData.kind='boat';boat.userData.scale=scale;boat.userData.phase=rand()*6.28;
+ boat.userData.heading=boat.rotation.y;
  scene.add(boat);boats.push(boat);return boat;
 }
 createBoat(4.35,-2.05,1.0);
@@ -691,7 +693,15 @@ function animate(){requestAnimationFrame(animate);
    sunPosition.style.left=`${dayPhase*93}%`;
    sunPosition.style.top=`${-4-34*Math.sin(dayPhase*Math.PI)}px`;
  }
- for(const b of boats){if(!b.parent)continue;b.position.y=.06+Math.sin(elapsed*2.1+b.userData.phase)*.025*waveHeight;b.rotation.z=Math.sin(elapsed*1.45+b.userData.phase)*.05*waveHeight;}
+ for(const b of boats){
+   if(!b.parent)continue;
+   const pose=boatPose(elapsed,b.position.x,b.position.z,{
+     scale:b.userData.scale||1,yaw:b.userData.heading||0,wave:waveHeight
+   });
+   b.position.y=pose.y;
+   b.rotation.x=pose.pitch;
+   b.rotation.z=pose.roll;
+ }
  controls.update();renderer.render(scene,camera);
 }
 animate();
