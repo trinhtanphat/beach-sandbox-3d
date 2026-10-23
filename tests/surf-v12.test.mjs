@@ -21,7 +21,7 @@ test('a turbulent foam wake grows behind the break then dissipates', () => {
 test('ocean foam wake is advected with the flow, not a stationary white stripe', () => {
   assert.match(oceanFragmentShader, /float surfSheet\(float x,float front,float n,vec2 uv,float shift\)/);
   assert.match(oceanFragmentShader, /float back=smoothstep\(\.008,\.030,d\)\*\(1\.-smoothstep\(\.100,\.185,d\)\)/);
-  assert.match(oceanFragmentShader, /vec2 flow=vec2\(uv\.x\*171\.\+uTime\*9\.,\(uv\.y-drift\)\*118\.-uTime\*1\.7\)/);
+  assert.match(oceanFragmentShader, /vec2 flow=vec2\(\(uv\.x-foamReturnTravel\(front,uv\.y,phase\)\)\*171\.\+uTime\*9\.,\(uv\.y-drift\)\*118\.-uTime\*1\.7\)/);
   assert.match(oceanFragmentShader, /foamA=surfSheet\(uv\.x,frontA,strand,uv,0\.\)/);
   assert.match(oceanFragmentShader, /foamB=surfSheet\(uv\.x,frontB,micro,uv,\.56\)/);
   assert.match(oceanFragmentShader, /troughA=exp/);
