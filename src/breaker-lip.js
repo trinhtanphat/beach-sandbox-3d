@@ -5,6 +5,7 @@
 import { DEPTH, HALF_DEPTH, HALF_WIDTH, shoreline, clamp } from './simulation.js';
 import { breakerPhase, frontWarp, waveEnvelope, sectionBreak, breakSectionGLSL } from './waves.js';
 import { COASTAL_ZONES } from './world-layout.js';
+import { coastalFlowGLSL } from './coastal-flow.js';
 
 export const LIP_ROWS=200;
 export const LIP_COLS=9;
@@ -70,6 +71,7 @@ varying float vLife;
 varying float vStrength;
 varying float vPhaseShift;
 ${breakSectionGLSL}
+${coastalFlowGLSL}
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise2(vec2 p){
  vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
@@ -80,8 +82,12 @@ void main(){
  float across=vUv.x;
  float dome=pow(max(0.,sin(3.14159265*across)),.8);
  // Waves break in softly scalloped sections rather than a hard white ribbon.
- float lace=noise2(vUv*vec2(7.,60.)+vec2(uTime*.16,uTime*.10));
- float smaller=noise2(vUv*vec2(19.,169.)+vec2(-uTime*.25,uTime*.29));
+ float phase=fract(uTime*.23+sin(vUv.y*9.+.3)*.027+vUv.y*.012+vPhaseShift);
+ float front=.34-.33*phase;
+ float drift=foamTravel(front,vUv.y,phase);
+ vec2 tracerUv=vec2(vUv.x,vUv.y-drift);
+ float lace=noise2(tracerUv*vec2(7.,60.)+vec2(uTime*.16,uTime*.10));
+ float smaller=noise2(tracerUv*vec2(19.,169.)+vec2(-uTime*.25,uTime*.29));
  float breakSections=breakingSections(vUv.y,uTime,vPhaseShift);
  float edge=clamp(dome*(.36+.37*lace+.27*smaller),0.,1.);
  vec3 water=vec3(.48,.86,.83),bright=vec3(.97,1.,.985);

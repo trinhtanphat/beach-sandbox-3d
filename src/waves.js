@@ -8,6 +8,7 @@
  *
  * Every shader is self contained: no licensed textures or external assets.
  */
+import { coastalFlowGLSL } from './coastal-flow.js';
 export const SURF_CYCLE_RATE = .23;
 export function waveFront(time, alongShore = 0) {
   const v = (time * SURF_CYCLE_RATE + alongShore * .035) % 1;
@@ -144,6 +145,7 @@ varying float vRise;
 varying float vWash;
 varying float vLongSwell;
 ${breakSectionGLSL}
+${coastalFlowGLSL}
 float hash21(vec2 p) {
   p=fract(p*vec2(123.34,345.45));
   p+=dot(p,p+34.345);
@@ -161,14 +163,16 @@ float frontAt(vec2 uv,float shift){
                 +.007*sin(uv.y*49.-uTime*2.89026524)
                 +.004*sin(uv.y*94.+uTime*4.33539786);
 }
-float surfSheet(float x,float front,float n,vec2 uv) {
+float surfSheet(float x,float front,float n,vec2 uv,float shift) {
   // Narrow white breaking lip and a lacy, dissolving foam wake behind it.
   float d=x-front;
   float thin=exp(-pow(d/(.015+.009*uWave),2.));
   float back=smoothstep(.008,.030,d)*(1.-smoothstep(.100,.185,d));
   // Advect the foam texture shoreward (toward decreasing UV x) while
   // introducing lower-frequency turbulence along the beach.
-  vec2 flow=vec2(uv.x*171.+uTime*9.,uv.y*118.-uTime*1.7);
+  float phase=fract(uTime*.23+sin(uv.y*9.+.3)*.027+uv.y*.012+shift);
+  float drift=foamTravel(front,uv.y,phase);
+  vec2 flow=vec2(uv.x*171.+uTime*9.,(uv.y-drift)*118.-uTime*1.7);
   float cells=snoise(flow);
   float lace=snoise(flow*.48+vec2(14.2,-6.1));
   float filaments=pow(max(0.,sin((d*104.)+lace*8.+uv.y*37.)),12.);
@@ -207,8 +211,8 @@ void main(){
   float cycleB=fract(cycleA+.56);
   float lifeA=smoothstep(0.,.12,cycleA)*(1.-smoothstep(.77,1.,cycleA));
   float lifeB=smoothstep(0.,.12,cycleB)*(1.-smoothstep(.77,1.,cycleB));
-  float foamA=surfSheet(uv.x,frontA,strand,uv)*lifeA*breakingSections(uv.y,uTime,0.);
-  float foamB=surfSheet(uv.x,frontB,micro,uv)*.43*lifeB*breakingSections(uv.y,uTime,.56);
+  float foamA=surfSheet(uv.x,frontA,strand,uv,0.)*lifeA*breakingSections(uv.y,uTime,0.);
+  float foamB=surfSheet(uv.x,frontB,micro,uv,.56)*.43*lifeB*breakingSections(uv.y,uTime,.56);
   // The trough on the seaward face of each crest adds depth to the wave;
   // foam remains on the shoreward side and dissolves into the lagoon.
   float troughA=exp(-pow((uv.x-frontA+.032)/.028,2.))*lifeA;
