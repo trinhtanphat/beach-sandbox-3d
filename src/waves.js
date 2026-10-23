@@ -69,6 +69,7 @@ uniform float uWave;
 varying vec2 vUv;
 varying float vRise;
 varying float vWash;
+varying float vLongSwell;
 float phaseAt(vec2 uv) {
   return fract(uTime * .23 + sin(uv.y*9.0+.3)*.027 + uv.y*.012);
 }
@@ -93,8 +94,12 @@ void main() {
   float offshore=(smoothstep(.08,.45,uv.x));
   float swell=sin(uv.x*27.0+uTime*2.3+uv.y*8.0)*.025
              +sin(uv.x*62.0+uTime*3.6-uv.y*22.0)*.007;
+  // Long directional swell travels under the smaller ripples and breakers.
+  float broadSwell=sin(uv.x*9.-uTime*1.08+uv.y*3.4)*.018
+                  +sin(uv.x*14.5+uTime*.72-uv.y*5.7)*.011;
+  vLongSwell=broadSwell;
   float shoaling=.020+(.065*(1.0-smoothstep(.12,.6,uv.x)));
-  p.y+=uWave*(swell+shoaling*(crestA*.90+crestB*.64));
+  p.y+=uWave*(swell+broadSwell+shoaling*(crestA*.90+crestB*.64));
   vRise=clamp(crestA*.95+crestB*.73,0.,1.);
   vWash=clamp(crestA+crestB*.7,0.,1.);
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
@@ -137,6 +142,7 @@ uniform float uFoam;
 varying vec2 vUv;
 varying float vRise;
 varying float vWash;
+varying float vLongSwell;
 ${breakSectionGLSL}
 float hash21(vec2 p) {
   p=fract(p*vec2(123.34,345.45));
@@ -181,6 +187,10 @@ void main(){
   vec3 outerShelf=vec3(.026,.46,.57);
   vec3 sea=mix(lagoon,turquoise,smoothstep(.09,.58,d));
   sea=mix(sea,outerShelf,smoothstep(.30,1.0,d)*.84);
+  // Subtle glints travel with actual raised long-wave faces, not a
+  // disconnected noise animation painted over the ocean.
+  float swellLight=smoothstep(-.020,.030,vLongSwell);
+  sea+=vec3(.032,.062,.056)*swellLight*(1.-.36*d)*uDay;
   // Refraction and sunlit cellular caustics, concentrated over pale sand.
   float c1=snoise(uv*vec2(154.,105.)+vec2(uTime*.6,-uTime*.4));
   float c2=snoise(uv*vec2(229.,181.)-vec2(uTime*.42,-uTime*.61));

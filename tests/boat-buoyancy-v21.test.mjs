@@ -24,8 +24,10 @@ test('boat surface height follows GPU equation, including two breaker crests',()
     const pb=frac(p+.56);
     const b=Math.exp(-Math.pow((u-front(.56))/(width*.84),2))*s(0,.12,pb)*(1-s(.77,1,pb));
     const swell=Math.sin(u*27+time*2.3+v*8)*.025+Math.sin(u*62+time*3.6-v*22)*.007;
+    const broad=Math.sin(u*9-time*1.08+v*3.4)*.018+
+      Math.sin(u*14.5+time*.72-v*5.7)*.011;
     const shoal=.020+.065*(1-s(.12,.6,u));
-    const expected=SEA_LEVEL+wave*(swell+shoal*(a*.90+b*.64));
+    const expected=SEA_LEVEL+wave*(swell+broad+shoal*(a*.90+b*.64));
     assert.ok(near(oceanHeight(time,x,z,wave),expected,1e-9),'ship detached from ocean mesh');
    }
   }
