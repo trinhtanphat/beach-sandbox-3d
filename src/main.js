@@ -10,6 +10,7 @@ import { createSurfSpray } from './surf-spray.js';
 import { createBreakerLip } from './breaker-lip.js';
 import { createFrameMetrics } from './frame-metrics.js';
 import { createAdaptiveResolution } from './adaptive-resolution.js';
+import { FOREST_COUNT, SEA_LEVEL, COASTAL_ZONES, planForest, submergedCenter, canPlace } from './world-layout.js';
 import './style.css';
 
 const canvas = document.getElementById('world');
@@ -49,10 +50,10 @@ controls.enablePan = false;
 controls.minZoom = .6;
 controls.maxZoom = 2.8;
 controls.update();
-const ambient = new THREE.HemisphereLight('#fff9e8', '#94b0a9', 2.45);
+const ambient = new THREE.HemisphereLight('#fff9e8', '#94b0a9', 1.90);
 scene.add(ambient);
-const sunlight = new THREE.DirectionalLight('#fff0d2', 3.2);
-const atmosphere = new THREE.DirectionalLight('#a8eeef', .65);
+const sunlight = new THREE.DirectionalLight('#fff0d2', 2.65);
+const atmosphere = new THREE.DirectionalLight('#a8eeef', .48);
 atmosphere.position.set(7,8,-9);
 scene.add(atmosphere);
 sunlight.position.set(-5, 17, 11);
@@ -81,25 +82,25 @@ document.getElementById('ambient-volume').addEventListener('input',event=>{
  oceanAudio.setVolume(v);
  document.getElementById('ambient-volume-value').textContent=Math.round(v*100)+'%';
 });
-const boxMat = new THREE.MeshStandardMaterial({ color: '#c6b491', roughness: 1 });
+const boxMat = new THREE.MeshStandardMaterial({ color: '#cbb898', roughness: 1 });
 const base = new THREE.Mesh(new THREE.BoxGeometry(WIDTH + .07, .57, DEPTH + .07), boxMat);
 base.position.y = -.66;
 base.receiveShadow = true;
 scene.add(base);
-const oceanBase = new THREE.Mesh(new THREE.BoxGeometry(WIDTH + .01, .1, DEPTH + .01), new THREE.MeshStandardMaterial({ color: '#2c8d95', roughness: 1 }));
+const oceanBase = new THREE.Mesh(new THREE.BoxGeometry(WIDTH + .01, .1, DEPTH + .01), new THREE.MeshStandardMaterial({ color: '#4b9d99', roughness: 1 }));
 oceanBase.position.y = -.33;
 scene.add(oceanBase);
 
 function terrainColor(x, z) {
   const distance = landDistance(x, z);
   const n = noise(x,z) * .05 + (rand()-.5)*.042;
-  const shoreSand = new THREE.Color('#f3dcaa');
-  const inlandSand = new THREE.Color('#d6c58f');
+  const shoreSand = new THREE.Color('#f8e5b9');
+  const inlandSand = new THREE.Color('#dccb9d');
   const sand = shoreSand.clone().lerp(inlandSand, smoothstep(.15, 5.5, distance));
   const green = new THREE.Color('#76a65a').lerp(new THREE.Color('#3d7c37'), rand()*.7);
-  if (distance <= -.1) return new THREE.Color('#65b2a6').lerp(new THREE.Color('#277585'), smoothstep(.5,7,-distance));
-  if (distance <= .04) return new THREE.Color('#c9dcc1');
-  return sand.lerp(green, forestWeight(x,z)*smoothstep(1,2.6,distance)*(.42+.45*rand())).offsetHSL(0,0,n);
+  if (distance <= -.1) return new THREE.Color('#e5d5ad').lerp(new THREE.Color('#839f96'),smoothstep(.5,7,-distance));
+  if (distance <= .04) return new THREE.Color('#e7d7af');
+  return sand.lerp(green, forestWeight(x,z)*smoothstep(1.5,4.2,distance)*(.27+.32*rand())).offsetHSL(0,0,n);
 }
 const SEG_X = 180, SEG_Z = 108;
 const terrainGeometry = new THREE.PlaneGeometry(WIDTH, DEPTH, SEG_X, SEG_Z);
@@ -127,11 +128,11 @@ const SEA_STEPS = 210, SEA_ROWS = 112;
 const seaPositions = [], seaUV=[],seaIndices=[];
 for(let row=0;row<=SEA_ROWS;row++) {
   const z=-HALF_DEPTH + row/SEA_ROWS*DEPTH;
-  const coast=shoreline(z)-.1;
+  const coast=shoreline(z)-COASTAL_ZONES.seaOverlap;
   for(let col=0;col<=SEA_STEPS;col++) {
     const u=col/SEA_STEPS;
     const x=coast+(HALF_WIDTH+.06-coast)*u;
-    seaPositions.push(x,.104,z);
+    seaPositions.push(x,SEA_LEVEL,z);
     seaUV.push(u,row/SEA_ROWS);
     if(row<SEA_ROWS && col<SEA_STEPS) {
       const a=row*(SEA_STEPS+1)+col,b=a+SEA_STEPS+1;
@@ -145,7 +146,7 @@ seaGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(seaUV,2));
 seaGeometry.setIndex(seaIndices);
 seaGeometry.computeVertexNormals();
 const reefField=makeReefField(THREE,scene,terrainHeight,shoreline);
-const waveUniforms={uTime:{value:0},uWave:{value:.6},uDay:{value:1},uFoam:{value:1}};
+const waveUniforms={uTime:{value:0},uWave:{value:1.0},uDay:{value:1},uFoam:{value:1}};
 const waterMaterial = new THREE.ShaderMaterial({
   uniforms:waveUniforms,side:THREE.DoubleSide,transparent:true,depthWrite:false,
   vertexShader:oceanVertexShader,fragmentShader:oceanFragmentShader
@@ -164,7 +165,7 @@ for(let iz=0;iz<=FOAM_ROWS;iz++){
   const coast=shoreline(z);
   for(let j=0;j<=FOAM_COLS;j++){
     const t=j/FOAM_COLS;
-    const x=coast-1.35+t*2.15;
+    const x=coast-COASTAL_ZONES.swashInland+t*(COASTAL_ZONES.swashInland+COASTAL_ZONES.swashSeaward);
     foamPositions.push(x,Math.max(.119,terrainHeight(x,z)+.032),z);
     foamUV.push(t,iz/FOAM_ROWS);
     if(iz<FOAM_ROWS&&j<FOAM_COLS){const a=iz*(FOAM_COLS+1)+j,b=a+FOAM_COLS+1;foamIndices.push(a,a+1,b,b,a+1,b+1);}
@@ -200,7 +201,6 @@ function createTree(x,z,scale=1) {
   g.position.set(x,y,z);
   g.userData.kind='tree';g.userData.scale=scale;scene.add(g);return g;
 }
-const FOREST_COUNT=840;
 const treeGeo=new THREE.IcosahedronGeometry(.28,1);
 const trunkGeo=new THREE.CylinderGeometry(.05,.075,.34,5);
 const leaves=new THREE.InstancedMesh(treeGeo,leafMaterial,FOREST_COUNT);
@@ -208,12 +208,11 @@ const smallLeaves=new THREE.InstancedMesh(treeGeo,leafMaterial,FOREST_COUNT);
 const trunks=new THREE.InstancedMesh(trunkGeo,trunkMaterial,FOREST_COUNT);
 const tempObject=new THREE.Object3D();
 const forestLocations=[];
-const foliagePalette=['#4d8d39','#80ad4a','#a8bc69','#649d3a','#5c973e','#7da83c','#3e7c35','#b1b66a'];
-for(let i=0;i<FOREST_COUNT;i++) {
- let x,z, tries=0;
- do { z=(rand()-.5)*(DEPTH-.72);x=-8.7+rand()*9.2;tries++; } while(tries<45 && (landDistance(x,z)<1.5 || rand()>forestWeight(x,z)));
- if(landDistance(x,z)<.5)x=shoreline(z)-.85;
- const y=terrainHeight(x,z), sc=.6+rand()*.85;
+const foliagePalette=['#4f8c46','#6ba852','#8eb96c','#5d9c55','#79ad63','#a7bb79','#3f8151','#b5c58a'];
+const forestPlan=planForest();
+for(let i=0;i<forestPlan.length;i++) {
+ const {x,z,scale:sc}=forestPlan[i];
+ const y=terrainHeight(x,z);
  forestLocations.push({x,z,y});
  tempObject.position.set(x,y+.17*sc,z);tempObject.scale.set(sc,sc,sc);tempObject.rotation.set(0,rand()*6,0);tempObject.updateMatrix();trunks.setMatrixAt(i,tempObject.matrix);
  tempObject.position.set(x,y+.40*sc,z);tempObject.scale.set(sc*(.9+rand()*.28),sc*(.8+rand()*.22),sc*(.9+rand()*.3));tempObject.updateMatrix();leaves.setMatrixAt(i,tempObject.matrix);
@@ -227,25 +226,27 @@ const palmGrove=createPalmGrove(THREE,scene,shoreline,terrainHeight);
 
 const rockGeometry=new THREE.DodecahedronGeometry(1,0);
 function createRock(x,z,sc=1,rockMaterial=sandRockMaterial){
- const baseY=landDistance(x,z)>0?editedHeight(x,z):-.10;
+ const aboveShore=landDistance(x,z)>0;
+ const baseY=aboveShore?editedHeight(x,z)+.10*sc:submergedCenter(terrainHeight(x,z),.19*sc);
  const rock=new THREE.Mesh(rockGeometry,rockMaterial);
- rock.position.set(x,baseY+.10*sc,z);
+ rock.position.set(x,baseY,z);
  rock.scale.set(.27*sc,.19*sc,.32*sc);rock.rotation.set(rand()*.25,rand()*6,rand()*.25);rock.castShadow=true;rock.receiveShadow=true;
  rock.userData.kind='rock';rock.userData.scale=sc;rock.userData.baseOffset=.10*sc;scene.add(rock);return rock;
 }
 // Instanced native rock field: two draw calls instead of ~90.
-const NATURAL_ROCK_LIMIT=94;
+const NATURAL_ROCK_LIMIT=70;
 const naturalRockSets=[sandRockMaterial,underRockMaterial].map(material=>({
  mesh:new THREE.InstancedMesh(rockGeometry,material,NATURAL_ROCK_LIMIT),points:[]
 }));
 const rockObject=new THREE.Object3D();
 for(let i=0;i<NATURAL_ROCK_LIMIT;i++){
  const z=(rand()-.5)*10.1;
- const x=shoreline(z)+(rand()*9.8)-1;
- if(x>8.8||x<-8.8) continue;
- const sc=.24+rand()*1.1;
- const group=naturalRockSets[landDistance(x,z)<0?1:0];
- const y=(landDistance(x,z)>0?terrainHeight(x,z):-.10)+.10*sc;
+ const offshore=rand()>.63;
+ const x=offshore?shoreline(z)+COASTAL_ZONES.reefMinOffshore+rand()*5.8:shoreline(z)-.5-rand()*2.8;
+ if(x>8.7||x<-8.7)continue;
+ const sc=.27+rand()*.75;
+ const group=naturalRockSets[offshore?1:0];
+ const y=offshore?submergedCenter(terrainHeight(x,z),.19*sc):terrainHeight(x,z)+.10*sc;
  rockObject.position.set(x,y,z);
  rockObject.scale.set(.27*sc,.19*sc,.32*sc);
  rockObject.rotation.set(rand()*.25,rand()*6,rand()*.25);
@@ -330,7 +331,7 @@ function restoreObject(object){
  scene.add(object);
  if(object.userData.kind==='boat'&&!boats.includes(object))boats.push(object);
 }
-let tool='explore', isPainting=false, waveHeight=.6, foamIntensity=1, speed=1, paused=false, elapsed=0, hours=10, brushSize=.7, zoomBase=1;
+let tool='explore', isPainting=false, waveHeight=1.0, foamIntensity=1, speed=1, paused=false, elapsed=0, hours=10, brushSize=.7, zoomBase=1;
 const raycaster=new THREE.Raycaster(),pointerNdc=new THREE.Vector2(),landPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.1),hit=new THREE.Vector3();
 function editedHeight(x,z){
  const ix=clamp(Math.round((x+HALF_WIDTH)*SEG_X/WIDTH),0,SEG_X);
@@ -419,9 +420,9 @@ function sculpt(point){
 function captureTerrain(){rememberChange({type:'terrain',heights:Float32Array.from(terrainPositions.array.filter((_,i)=>i%3===1))});}
 function handleBrush(point){
  if(['raise','lower','smooth'].includes(tool)){sculpt(point);return;}
- if(tool==='plant'&&landDistance(point.x,point.z)>.25&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
- if(tool==='rock'&&mayPlaceObject()){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);rememberChange({type:'added',object:m});}
- if(tool==='boat'&&landDistance(point.x,point.z)<-.25&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='plant'&&canPlace('tree',point.x,point.z)&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='rock'&&canPlace('rock',point.x,point.z)&&mayPlaceObject()){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='boat'&&canPlace('boat',point.x,point.z)&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='erase'){
    let closest=null,best=brushSize;
    for(const o of interactiveItems){const d=Math.hypot(o.position.x-point.x,o.position.z-point.z);if(d<best){best=d;closest=o;}}
