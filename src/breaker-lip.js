@@ -85,7 +85,7 @@ void main(){
  float phase=fract(uTime*.23+sin(vUv.y*9.+.3)*.027+vUv.y*.012+vPhaseShift);
  float front=.34-.33*phase;
  float drift=foamTravel(front,vUv.y,phase);
- vec2 tracerUv=vec2(vUv.x,vUv.y-drift);
+ vec2 tracerUv=vec2(vUv.x-foamReturnTravel(front,vUv.y,phase),vUv.y-drift);
  float lace=noise2(tracerUv*vec2(7.,60.)+vec2(uTime*.16,uTime*.10));
  float smaller=noise2(tracerUv*vec2(19.,169.)+vec2(-uTime*.25,uTime*.29));
  float breakSections=breakingSections(vUv.y,uTime,vPhaseShift);

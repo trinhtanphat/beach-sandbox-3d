@@ -172,7 +172,7 @@ float surfSheet(float x,float front,float n,vec2 uv,float shift) {
   // introducing lower-frequency turbulence along the beach.
   float phase=fract(uTime*.23+sin(uv.y*9.+.3)*.027+uv.y*.012+shift);
   float drift=foamTravel(front,uv.y,phase);
-  vec2 flow=vec2(uv.x*171.+uTime*9.,(uv.y-drift)*118.-uTime*1.7);
+  vec2 flow=vec2((uv.x-foamReturnTravel(front,uv.y,phase))*171.+uTime*9.,(uv.y-drift)*118.-uTime*1.7);
   float cells=snoise(flow);
   float lace=snoise(flow*.48+vec2(14.2,-6.1));
   float filaments=pow(max(0.,sin((d*104.)+lace*8.+uv.y*37.)),12.);

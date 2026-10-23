@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {coastalFlowGLSL,longshoreSpeed,foamTravel} from '../src/coastal-flow.js';
+import {coastalFlowGLSL,longshoreSpeed,foamTravel,foamReturnTravel} from '../src/coastal-flow.js';
 import {breakerPhase,frontWarp,waveEnvelope,oceanFragmentShader} from '../src/waves.js';
 import {surfSprayPoint,sprayVertexShader,createSurfSpray,SPRAY_PARTICLES} from '../src/surf-spray.js';
 import {breakerLipFragmentShader} from '../src/breaker-lip.js';
@@ -43,7 +43,7 @@ test('spray particle CPU reference follows the same alongshore drift, one draw c
     const front=.34-.33*phase+frontWarp(t,v);
     const r=Math.sin(3*127.1+z*311.7)*43758.5453;
     const random=r-Math.floor(r);
-    assert.ok(Math.abs(sample.x-(coast+w*(front+.004+.065*random)))<1e-9);
+    assert.ok(Math.abs(sample.x-(coast+w*(front+.004+.065*random+foamReturnTravel(front,v,phase))))<1e-9);
     assert.ok(Math.abs(sample.z-z-DEPTH*foamTravel(front,v,phase))<1e-9);
     assert.ok(sample.z-z>=0&&sample.z-z<=.24);
     // A particle becomes invisible at the wrap, hiding bounded age reset.

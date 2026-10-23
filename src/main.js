@@ -11,6 +11,7 @@ import { createBreakerLip } from './breaker-lip.js';
 import { createFrameMetrics } from './frame-metrics.js';
 import { createAdaptiveResolution } from './adaptive-resolution.js';
 import { boatPose } from './ocean-surface.js';
+import { boatCurrentPosition } from './boat-current.js';
 import { createSeaDynamics } from './sea-dynamics.js';
 import { FOREST_COUNT, SEA_LEVEL, COASTAL_ZONES, planForest, submergedCenter, canPlace } from './world-layout.js';
 import './style.css';
@@ -305,6 +306,7 @@ function createBoat(x,z,scale=1) {
  const sail=new THREE.Mesh(boatSailGeo,boatSailMat);boat.add(sail);
  boat.position.set(x,.08,z);boat.rotation.y=rand()*6.28;boat.userData.kind='boat';boat.userData.scale=scale;boat.userData.phase=rand()*6.28;
  boat.userData.heading=boat.rotation.y;
+ boat.userData.anchorX=x;boat.userData.anchorZ=z;
  scene.add(boat);boats.push(boat);return boat;
 }
 createBoat(4.35,-2.05,1.0);
@@ -455,7 +457,9 @@ function snapshotIsland() {
  const heights=new Float32Array(terrainPositions.count);
  for(let i=0;i<heights.length;i++)heights[i]=terrainPositions.getY(i);
  const objects=interactiveItems.map(o=>({
-  kind:o.userData.kind,x:o.position.x,z:o.position.z,
+  kind:o.userData.kind,
+  x:o.userData.kind==='boat'?o.userData.anchorX:o.position.x,
+  z:o.userData.kind==='boat'?o.userData.anchorZ:o.position.z,
   scale:o.userData.scale||1
  }));
  return createSnapshot({heights,objects,wave:waveHeight,foam:foamIntensity,speed,hours});
@@ -701,7 +705,10 @@ function animate(){requestAnimationFrame(animate);
  }
  for(const b of boats){
    if(!b.parent)continue;
-   const pose=boatPose(elapsed,b.position.x,b.position.z,{
+   const current=boatCurrentPosition(elapsed,
+     b.userData.anchorX,b.userData.anchorZ,b.userData.phase||0);
+   b.position.x=current.x;b.position.z=current.z;
+   const pose=boatPose(elapsed,current.x,current.z,{
      scale:b.userData.scale||1,yaw:b.userData.heading||0,wave:sea.wave
    });
    b.position.y=pose.y;
