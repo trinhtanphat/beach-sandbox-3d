@@ -11,6 +11,7 @@ import { createBreakerLip } from './breaker-lip.js';
 import { createFrameMetrics } from './frame-metrics.js';
 import { createAdaptiveResolution } from './adaptive-resolution.js';
 import { boatPose } from './ocean-surface.js';
+import { createSeaDynamics } from './sea-dynamics.js';
 import { FOREST_COUNT, SEA_LEVEL, COASTAL_ZONES, planForest, submergedCenter, canPlace } from './world-layout.js';
 import './style.css';
 
@@ -334,6 +335,7 @@ function restoreObject(object){
  if(object.userData.kind==='boat'&&!boats.includes(object))boats.push(object);
 }
 let tool='explore', isPainting=false, waveHeight=1.0, foamIntensity=1, speed=1, paused=false, elapsed=0, hours=10, brushSize=.7, zoomBase=1;
+const seaDynamics=createSeaDynamics({wave:waveHeight,foam:foamIntensity});
 const raycaster=new THREE.Raycaster(),pointerNdc=new THREE.Vector2(),landPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.1),hit=new THREE.Vector3();
 function editedHeight(x,z){
  const ix=clamp(Math.round((x+HALF_WIDTH)*SEG_X/WIDTH),0,SEG_X);
@@ -479,6 +481,7 @@ function applyIsland(saved){
  }
  waveHeight=saved.wave;
  foamIntensity=saved.foam;
+ seaDynamics.reset({wave:waveHeight,foam:foamIntensity});
  speed=saved.speed;
  hours=saved.hours;
  document.getElementById('wave').value=String(waveHeight);
@@ -662,13 +665,16 @@ function animate(){requestAnimationFrame(animate);
   fpsSeconds=0;fpsFrames=0;
  }
  if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;}
+ // All sea layers transition to new conditions at the same physical rate.
+ // Pause freezes both ocean time and its current sea-state interpolation.
+ const sea=seaDynamics.advance(dt,{wave:waveHeight,foam:foamIntensity,paused});
  waveUniforms.uTime.value=elapsed;
- surfSpray.update(elapsed,waveHeight,foamIntensity);
- breakingLip.update(elapsed,waveHeight,daylight(hours),foamIntensity);
+ surfSpray.update(elapsed,sea.wave,sea.foam);
+ breakingLip.update(elapsed,sea.wave,daylight(hours),sea.foam);
  gulls.update(elapsed);
- oceanAudio.update(elapsed,waveHeight,paused);
- waveUniforms.uWave.value=waveHeight;
- waveUniforms.uFoam.value=foamIntensity;
+ oceanAudio.update(elapsed,sea.wave,paused);
+ waveUniforms.uWave.value=sea.wave;
+ waveUniforms.uFoam.value=sea.foam;
  waveUniforms.uDay.value=daylight(hours);
  const day=daylight(hours);
  ambient.intensity=1.2+1.25*day;
@@ -696,7 +702,7 @@ function animate(){requestAnimationFrame(animate);
  for(const b of boats){
    if(!b.parent)continue;
    const pose=boatPose(elapsed,b.position.x,b.position.z,{
-     scale:b.userData.scale||1,yaw:b.userData.heading||0,wave:waveHeight
+     scale:b.userData.scale||1,yaw:b.userData.heading||0,wave:sea.wave
    });
    b.position.y=pose.y;
    b.rotation.x=pose.pitch;

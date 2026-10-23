@@ -29,8 +29,10 @@ export function oceanHeight(time,x,z,height=1){
     smoothstep(0,.12,phaseB)*(1-smoothstep(.77,1,phaseB));
   const swell=Math.sin(u*27+time*2.3+v*8)*.025+
      Math.sin(u*62+time*3.6-v*22)*.007;
+  const broadSwell=Math.sin(u*9-time*1.08+v*3.4)*.018
+                 +Math.sin(u*14.5+time*.72-v*5.7)*.011;
   const shoaling=.020+.065*(1-smoothstep(.12,.6,u));
-  return SEA_LEVEL+wave*(swell+shoaling*(crestA*.90+crestB*.64));
+  return SEA_LEVEL+wave*(swell+broadSwell+shoaling*(crestA*.90+crestB*.64));
 }
 /** Returns world-space hull flotation and local orientation relative to hull yaw. */
 export function boatPose(time,x,z,{scale=1,yaw=0,wave=1}={}){
