@@ -7,7 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Rebuilt 3D diorama with a coherent coastal biome: a broader pale-sand strand, 255 deliberately spaced tropical trees, shallow turquoise reef water, submerged coral and boats.
-- **Coherent island redesign v20**: natural foliage grouping respects a shared dry-land buffer, interactive placement respects shoreline zones, and seabed rocks/coral stay underwater. The nearshore-to-shelf water palette now fades smoothly, with less harsh lighting and a readable shoreline. The two curling 3D breakers, 460 GPU foam droplets, phase-locked retreat rivulets, wet sand and adaptive DPR remain. This is stylized WebGL, not physical CFD.
+- **Coherent ocean motion v21**: boats now float and tilt with the **same two staggered crest trains and background swells used by the ocean vertex shader**, rather than an unrelated sine-wave animation. Each hull samples the local wave height and gradient (relative to its heading), while preserving the v20 coastal biome, 255 natural trees, underwater reefs, foam, birds and adaptive resolution. This is stylized procedural WebGL, not a fluid-dynamics solver.
 - **Living ecosystem**: 14 animated seabirds in a single GPU draw call, and up to 360 seeded reef objects kept beneath the water surface (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
 - **Dynamic cinematic lighting**: adjustable sun-time slider, warmer golden-hour atmosphere, blue rim light and enhanced tropical colors.
