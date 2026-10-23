@@ -6,6 +6,7 @@ import { DEPTH, HALF_WIDTH, shoreline, seededRandom } from './simulation.js';
 import { breakerPhase, breakerPosition, frontWarp, waveEnvelope, sectionBreak, breakSectionGLSL } from './waves.js';
 import { createOrganicFoamAtlas, FOAM_VARIANTS } from './foam-atlas.js';
 import { COASTAL_ZONES } from './world-layout.js';
+import { foamTravel, coastalFlowGLSL } from './coastal-flow.js';
 export const SPRAY_PARTICLES=460;
 
 export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
@@ -20,7 +21,8 @@ export function surfSprayPoint(time, z, seed=0, strength=.6, shift=0) {
   return {
     x: coast+waterWidth*(front+(.004+.065*r)),
     y: .155+.012*Math.sin(time*2.4+seed)+r*.055*strength,
-    z,life,section:sectionBreak(time,v,shift),visibleLife:life*sectionBreak(time,v,shift)
+    z:z+DEPTH*foamTravel(front,v,phase),
+    life,section:sectionBreak(time,v,shift),visibleLife:life*sectionBreak(time,v,shift)
   };
 }
 
@@ -36,6 +38,7 @@ uniform float uWave;
 varying float vLife;
 varying float vFoamVariant;
 ${breakSectionGLSL}
+${coastalFlowGLSL}
 void main(){
   float v=aAlong;
   vFoamVariant=aFoamVariant;
@@ -47,6 +50,7 @@ void main(){
       +.004*sin(v*94.+uTime*4.33539786);
   vec3 p=position;
   p.x+=aWaterWidth*(front+.004+.065*aRandom);
+  p.z+=10.8*foamTravel(front,v,cycle);
   p.y=.155+.012*sin(uTime*2.4+aSeed)+aRandom*.055*uWave;
   vec4 view=modelViewMatrix*vec4(p,1.);
   gl_Position=projectionMatrix*view;
