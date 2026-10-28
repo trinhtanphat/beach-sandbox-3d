@@ -12,6 +12,8 @@ import { createFrameMetrics } from './frame-metrics.js';
 import { createAdaptiveResolution } from './adaptive-resolution.js';
 import { boatPose } from './ocean-surface.js';
 import { boatCurrentPosition } from './boat-current.js';
+import { lagoonWaterMotion } from './lagoon-physics.js';
+import { createLagoonSurface } from './lagoon-surface.js';
 import { createSeaDynamics } from './sea-dynamics.js';
 import { FOREST_COUNT, SEA_LEVEL, COASTAL_ZONES, planForest, submergedCenter, canPlace } from './world-layout.js';
 import './style.css';
@@ -96,6 +98,7 @@ scene.add(oceanBase);
 
 function terrainColor(x, z) {
   const distance = landDistance(x, z);
+  if(distance>0&&terrainHeight(x,z)<SEA_LEVEL-.018)return new THREE.Color('#ccbda0');
   const n = noise(x,z) * .05 + (rand()-.5)*.042;
   const shoreSand = new THREE.Color('#f8e5b9');
   const inlandSand = new THREE.Color('#dccb9d');
@@ -229,8 +232,8 @@ const palmGrove=createPalmGrove(THREE,scene,shoreline,terrainHeight);
 
 const rockGeometry=new THREE.DodecahedronGeometry(1,0);
 function createRock(x,z,sc=1,rockMaterial=sandRockMaterial){
- const aboveShore=landDistance(x,z)>0;
- const baseY=aboveShore?editedHeight(x,z)+.10*sc:submergedCenter(terrainHeight(x,z),.19*sc);
+ const aboveShore=editedHeight(x,z)>SEA_LEVEL+.035;
+ const baseY=aboveShore?editedHeight(x,z)+.10*sc:submergedCenter(editedHeight(x,z),.19*sc);
  const rock=new THREE.Mesh(rockGeometry,rockMaterial);
  rock.position.set(x,baseY,z);
  rock.scale.set(.27*sc,.19*sc,.32*sc);rock.rotation.set(rand()*.25,rand()*6,rand()*.25);rock.castShadow=true;rock.receiveShadow=true;
@@ -312,6 +315,7 @@ function createBoat(x,z,scale=1) {
 createBoat(4.35,-2.05,1.0);
 createBoat(6.0,2.1,.7);
 createBoat(2.65,2.8,.47);
+createBoat(-3.25,.55,.52); // Sheltered lagoon boat.
 
 // Brush visual floats above the land as a hint when an editing tool is active.
 const brushRing=new THREE.Mesh(new THREE.RingGeometry(.63,.7,64),new THREE.MeshBasicMaterial({color:'#f7a66e',transparent:true,opacity:.85,side:THREE.DoubleSide,depthWrite:false}));
@@ -344,6 +348,17 @@ function editedHeight(x,z){
  const iz=clamp(Math.round((z+HALF_DEPTH)*SEG_Z/DEPTH),0,SEG_Z);
  return terrainPositions.getY(iz*(SEG_X+1)+ix);
 }
+// Bilinear sampling prevents stair-step shoreline artefacts.
+function sampleGroundHeight(x,z){
+ const gx=clamp((x+HALF_WIDTH)*SEG_X/WIDTH,0,SEG_X),gz=clamp((z+HALF_DEPTH)*SEG_Z/DEPTH,0,SEG_Z);
+ const ix=Math.min(SEG_X-1,Math.floor(gx)),iz=Math.min(SEG_Z-1,Math.floor(gz));
+ const tx=gx-ix,tz=gz-iz;
+ const a=iz*(SEG_X+1)+ix,b=a+SEG_X+1;
+ const top=terrainPositions.getY(a)*(1-tx)+terrainPositions.getY(a+1)*tx;
+ const bottom=terrainPositions.getY(b)*(1-tx)+terrainPositions.getY(b+1)*tx;
+ return top*(1-tz)+bottom*tz;
+}
+const lagoonSurface=createLagoonSurface(THREE,scene,sampleGroundHeight,shoreline,waveUniforms);
 function syncFoamElevation(){
   const pos=foamGeo.attributes.position;
   for(let i=0;i<pos.count;i++){
@@ -353,6 +368,7 @@ function syncFoamElevation(){
   pos.needsUpdate=true;
   foamGeo.computeBoundingSphere();
   syncInstancedGroundDetails();
+  lagoonSurface.refresh();
 }
 function syncInstancedGroundDetails(){
  const matrix=new THREE.Matrix4();
@@ -426,9 +442,9 @@ function sculpt(point){
 function captureTerrain(){rememberChange({type:'terrain',heights:Float32Array.from(terrainPositions.array.filter((_,i)=>i%3===1))});}
 function handleBrush(point){
  if(['raise','lower','smooth'].includes(tool)){sculpt(point);return;}
- if(tool==='plant'&&canPlace('tree',point.x,point.z)&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='plant'&&canPlace('tree',point.x,point.z,editedHeight(point.x,point.z))&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='rock'&&canPlace('rock',point.x,point.z)&&mayPlaceObject()){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);rememberChange({type:'added',object:m});}
- if(tool==='boat'&&canPlace('boat',point.x,point.z)&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='boat'&&canPlace('boat',point.x,point.z,editedHeight(point.x,point.z))&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='erase'){
    let closest=null,best=brushSize;
    for(const o of interactiveItems){const d=Math.hypot(o.position.x-point.x,o.position.z-point.z);if(d<best){best=d;closest=o;}}
@@ -705,6 +721,16 @@ function animate(){requestAnimationFrame(animate);
  }
  for(const b of boats){
    if(!b.parent)continue;
+   const anchorX=b.userData.anchorX,anchorZ=b.userData.anchorZ;
+   if(landDistance(anchorX,anchorZ)>0 && sampleGroundHeight(anchorX,anchorZ)<SEA_LEVEL-.045){
+     const motion=lagoonWaterMotion(anchorX,anchorZ,elapsed,sea.wave);
+     b.position.x=anchorX+motion.vx;
+     b.position.z=anchorZ+motion.vz;
+     b.position.y=SEA_LEVEL+.065+motion.height;
+     b.rotation.x=Math.sin(elapsed*1.02+b.userData.phase)*.018*sea.wave;
+     b.rotation.z=Math.cos(elapsed*.91+b.userData.phase)*.022*sea.wave;
+     continue;
+   }
    const current=boatCurrentPosition(elapsed,
      b.userData.anchorX,b.userData.anchorZ,b.userData.phase||0);
    b.position.x=current.x;b.position.z=current.z;
