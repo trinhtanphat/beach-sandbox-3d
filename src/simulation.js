@@ -1,4 +1,5 @@
 /** Pure deterministic pieces of the coastal simulation; shared with tests. */
+import {excavateLagoon} from './lagoon-physics.js';
 export const WIDTH = 18;
 export const DEPTH = 10.8;
 export const HALF_WIDTH = WIDTH / 2;
@@ -13,9 +14,9 @@ export const terrainHeight = (x, z) => {
   if (distance < 0) {
     const seaward = -distance;
     // Continuous sandy seabed: no cliff where the beach meets the water.
-    return .08 + .033 * noise(x, z) - .12 * smoothstep(0, 1.2, seaward) - .24 * smoothstep(0, 5, seaward);
+    return excavateLagoon(x,z,.08 + .033 * noise(x, z) - .12 * smoothstep(0, 1.2, seaward) - .24 * smoothstep(0, 5, seaward));
   }
-  return 0.08 + 0.07 * smoothstep(0, 1.5, distance) + 0.033 * noise(x, z) + 0.06 * smoothstep(2, 6, distance);
+  return excavateLagoon(x,z,0.08 + 0.07 * smoothstep(0, 1.5, distance) + 0.033 * noise(x, z) + 0.06 * smoothstep(2, 6, distance));
 };
 export const forestWeight = (x, z) => {
   const d = landDistance(x, z);

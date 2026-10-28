@@ -60,7 +60,7 @@ test('ocean has a single progressive shelf color and retains whitewater shader',
 test('interactive tools honor wet beach, deep water, and world bounds',()=>{
  for(const z of [-4,-1,0,2.7,4.5]){
   const coast=shoreline(z);
-  assert.equal(canPlace('tree',coast-2,z),true);
+  assert.equal(canPlace('tree',coast-2,z),terrainHeight(coast-2,z)>SEA_LEVEL+.035); // new lagoon is submerged even inland
   assert.equal(canPlace('tree',coast-.20,z),false);
   assert.equal(canPlace('boat',coast+.95,z),true);
   assert.equal(canPlace('boat',coast-.3,z),false);

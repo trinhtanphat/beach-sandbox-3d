@@ -1,4 +1,5 @@
-import {WIDTH,DEPTH,landDistance,forestWeight,noise,seededRandom} from './simulation.js';
+import {WIDTH,DEPTH,landDistance,forestWeight,noise,seededRandom,terrainHeight} from './simulation.js';
+import {lagoonProfile} from './lagoon-physics.js';
 
 export const FOREST_COUNT=255;
 export const SEA_LEVEL=.104;
@@ -18,12 +19,12 @@ export function planForest({count=FOREST_COUNT,seed=20261021,spacing=.39}={}){
   const random=seededRandom(seed),trees=[],occupied=new Map();
   const key=(i,j)=>i+':'+j;
   const cell=v=>Math.floor(v/spacing);
-  const attempts=Math.max(300,count*160);
+  const attempts=Math.max(300,count*1200);
   for(let attempt=0;attempt<attempts&&trees.length<count;attempt++){
     const z=(random()-.5)*(DEPTH-.75);
     const x=-WIDTH/2+.30+random()*(WIDTH*.50);
     const d=landDistance(x,z);
-    if(d<COASTAL_ZONES.forestMinLand||d>9.5)continue;
+    if(d<COASTAL_ZONES.forestMinLand||d>9.5||terrainHeight(x,z)<SEA_LEVEL+.035)continue;
     const woodland=forestWeight(x,z);
     const mosaic=.53+.26*noise(x*.39,z*.54)+.15*Math.sin(x*.77+z*.36);
     if(random()>Math.min(.91,Math.max(.12,.22+woodland*.58+mosaic*.13)))continue;
@@ -51,11 +52,14 @@ export function submergedCenter(floor,verticalExtent,waterLevel=SEA_LEVEL){
 }
 
 /** Consistent biome rules for interactive placement as well as natural scatter. */
-export function canPlace(kind,x,z){
+export function canPlace(kind,x,z,groundY=null){
   if(!Number.isFinite(x)||!Number.isFinite(z)||Math.abs(x)>WIDTH/2-.2||Math.abs(z)>DEPTH/2-.2)return false;
+  if(groundY===null)groundY=terrainHeight(x,z);
+  if(!Number.isFinite(groundY))return false;
   const d=landDistance(x,z);
-  if(kind==='tree')return d>=COASTAL_ZONES.plantMinLand; // no roots in the active swash
-  if(kind==='boat')return d<=-COASTAL_ZONES.boatMinOffshore;
+  if(kind==='tree')return d>=COASTAL_ZONES.plantMinLand&&groundY>SEA_LEVEL+.035; // dry roots
+  if(kind==='boat')return groundY<SEA_LEVEL-.045&&
+    (d<=-COASTAL_ZONES.boatMinOffshore||lagoonProfile(x,z).wetland>.43);
   if(kind==='rock')return true; // reef rock underwater or beach rock on land
   return false;
 }
