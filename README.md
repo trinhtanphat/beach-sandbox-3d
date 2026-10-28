@@ -7,6 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Rebuilt 3D diorama with a coherent coastal biome: a broader pale-sand strand, 255 deliberately spaced tropical trees, shallow turquoise reef water, submerged coral and boats.
+- **Inland lagoon v25:** a real excavated sandy lagoon with a narrow open-sea inlet, terrain-clipped shaded water, sheltered ripples, lagoon-safe forest/boat placement and moored boat motion. Terrain edits refresh water on completion, Undo, Reset and Load; old local island saves remain supported. See [release verification](docs/BEACH_V25_RELEASE_2026-10-29.md).
 - **Return-current channels and moored boats v24**: two narrow, bounded seaward return-flow lanes gently stretch the visible whitewater textures and 460 spray particles, sharing the same current field across ocean, raised breaker and spray shaders. Boats drift and bob near their original anchors under the same longshore and return-current model; the editor saves **original anchor coordinates** rather than animated boat positions to prevent Save/Load drift. Preserves v23 shoreward breakers, long swells, audio, bird flock, adaptive DPR and all user island data. Still an artistic procedural current model, not a conservation-law hydrodynamic solver.
 - **Living ecosystem**: 14 animated seabirds in a single GPU draw call, and up to 360 seeded reef objects kept beneath the water surface (4 instanced batches).
 - **Generative ambient audio**: ocean surf noise shaped to match wave height and occasional synthetic seabird calls. User must click Sound to start; no autoplay, uploaded audio, or copyrighted media samples.
@@ -18,12 +19,12 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 - Dynamic sun, time-of-day display, wave height, whitewater foam intensity and simulation-speed controls.
 - Orbit, zoom, build sand, dig, rake, plant a tree, add rocks, launch a boat, erase, undo and reset.
 - Desktop/mobile adaptive UI: on phones, the tool palette collapses into a compact Tools button to keep the island visible; keyboard shortcuts 1–8, Space and Ctrl+Z remain available on desktop.
-- Repeatable terrain/vegetation generation with deterministic randomness. Centralized `COASTAL_ZONES` keeps surf overlap, wet beach, planting, forest, boat and reef positions consistent; 78 automated tests cover both legacy simulation and world-layout constraints.
+- Repeatable terrain/vegetation generation with deterministic randomness. Centralized `COASTAL_ZONES` keeps surf overlap, wet beach, planting, forest, boat and reef positions consistent; 98 automated tests cover legacy simulation and the lagoon geometry/placement constraints.
 - JavaScript code splitting keeps the ~42 kB application chunk separate from the ~511 kB Three.js vendor chunk. The isolated Cloudflare Worker now caches content-hashed static assets for one year and makes HTML revalidate, with a self-test verifying exact decompressed bytes, HEAD, ETags, 404 and 405. The vendor chunk still triggers Vite's non-blocking size warning.
 
 ## Public demo
 
-Cloudflare Worker: [beach.qs3d.site](https://beach.qs3d.site/) — independent static Worker deployment, no project DB or API credentials. Preview staging remains [shoreline-sandbox-3d-stage.hikvision.workers.dev](https://shoreline-sandbox-3d-stage.hikvision.workers.dev/).
+Cloudflare Worker: [beach.qs3d.site](https://beach.qs3d.site/) — independent static Worker deployment, no project DB or API credentials. Previous staging is [shoreline-sandbox-3d-stage.hikvision.workers.dev](https://shoreline-sandbox-3d-stage.hikvision.workers.dev/). The isolated **v25 preview** is [shoreline-sandbox-3d-v25-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v25-qa.mamspa.workers.dev/).
 
 ## Quickstart
 
@@ -63,7 +64,7 @@ npm run preview
 
 ## Scope
 
-This is a visual/gameplay prototype, not a CFD fluid simulator or physically accurate coastal erosion system. Sand edits do not yet feed back into the procedural shoreline/wave-boundary mesh. Node tests cover geometry, coastal continuity, wave animation, save/restore validation and GLSL shader wiring.
+This is a visual/gameplay prototype, not a CFD fluid simulator or physically accurate coastal erosion system. Lagoon water responds to sand edits when a sculpting gesture ends, but the existing open-ocean surf wave-boundary mesh does not yet dynamically recalculate from excavation. Node tests cover geometry, coastal continuity, wave animation, save/restore validation and GLSL shader wiring.
 
 ### Isolated staging deployment
 
