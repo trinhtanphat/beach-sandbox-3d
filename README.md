@@ -34,6 +34,8 @@ The **v27 QA Worker** is [shoreline-sandbox-3d-v27-qa.mamspa.workers.dev](https:
 
 The **v28 progressive-hydraulics QA Worker** is [shoreline-sandbox-3d-v28-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v28-qa.mamspa.workers.dev/). See the [v28 production release and rollback report](docs/BEACH_V28_RELEASE_2026-10-29.md) for the verified GitHub commit, 114/114 tests and live HTTP/WebGL checks.
 
+The **v29 stabilized hydraulics QA Worker** is [shoreline-sandbox-3d-v29-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v29-qa.mamspa.workers.dev/). See the [v29 production verification and rollback](docs/BEACH_V29_RELEASE_2026-10-29.md) documenting the original numerical instability, corrected waterline geometry and 117/117 tests.
+
 ## Quickstart
 
 Requires Node.js 20.19+ or 22.12+ (Node 24 works too).
