@@ -49,7 +49,7 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
    uniform float uTime;uniform float uWave;uniform float uDay;
    varying float vWet;varying float vDepth;varying vec2 vUv;
    void main(){
-    if(vWet<.025)discard;
+    if(vWet<.10)discard;
     vec2 p=vUv*vec2(9.,7.);
     float ripple=sin(p.x*19.+uTime*1.45+p.y*2.)*.5+
                  sin(p.y*32.-uTime*1.03-p.x*1.7)*.5;
@@ -63,7 +63,7 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
     float edgeFoam=shoal*(.15+.16*(sin(uTime*1.7+p.x*21.+p.y*13.)*.5+.5));
     c=mix(c,vec3(.82,.93,.84),edgeFoam);
     c*=.74+.26*uDay;
-    gl_FragColor=vec4(c,vWet*(.64+.14*depthFactor));
+    gl_FragColor=vec4(c,smoothstep(.10,.35,vWet)*(.64+.14*depthFactor));
    }`
  });
  const mesh=new THREE.Mesh(geometry,material);
@@ -86,7 +86,20 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
    const coastalFade=1-smooth(coast(z)-.06,coast(z)+.27,x);
    // Cell has volume only if hydraulic flux delivered it, not merely a
    // global reachability lookup. The surface rises as that volume grows.
-   pos.setY(i,samples[i]+depth+.012);
+   // Dry terrain is never part of the water sheet. Keep its zero-alpha
+   // vertices at the local waterline instead of lifting them up to sandy
+   // terrain heights (which previously formed a triangular water wall).
+   let surface=samples[i]+depth;
+   if(depth<=.003){
+    const ix=i%COLS,iz=(i-ix)/COLS;
+    let neighborLevel=0,neighborCount=0;
+    const near=[ix>0?i-1:-1,ix<NX?i+1:-1,iz>0?i-COLS:-1,iz<NZ?i+COLS:-1];
+    for(const j of near)if(j>=0&&fluid.depth[j]>.003){
+     neighborLevel+=samples[j]+fluid.depth[j];neighborCount++;
+    }
+    surface=neighborCount?neighborLevel/neighborCount:LAGOON_SEA_LEVEL;
+   }
+   pos.setY(i,surface+.012);
    wet.setX(i,smooth(.002,.03,depth)*coastalFade);
    depthAttr.setX(i,depth);
    if(depth>.003)floodedCount++;

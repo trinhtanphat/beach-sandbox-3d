@@ -7,6 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Rebuilt 3D diorama with a coherent coastal biome: a broader pale-sand strand, 255 deliberately spaced tropical trees, shallow turquoise reef water, submerged coral and boats.
+- **Stable lagoon water surface v29:** limit each face transfer by available hydraulic-head volume to prevent the default lagoon from draining and forming vertical water sheets; preserve pond volume when building underwater sandbars and keep dry-shore water mesh vertices at the local waterline. See [v29 stability notes](docs/BEACH_V29_HYDROSTATIC_STABILITY_2026-10-29.md).
 - **Progressive inlet hydraulics v28:** inland water now propagates cell by cell from the sea through real open trenches instead of appearing at full depth instantly. Fluxes are donor-volume-limited, water behind a dam is retained, Pause freezes flow, and flood metrics reflect current depth. See [v28 hydrology notes](docs/BEACH_V28_PROGRESSIVE_HYDRAULICS_2026-10-29.md).
 - **Seabed-aware ecology v27:** inland flooded footprint and sampled mean water depth are visible in Ocean Conditions, coastal rocks correctly rest underwater after terraforming, and Island life reflects only visible trees. See [v27 coastal ecology](docs/BEACH_V27_COASTAL_ECOLOGY_2026-10-29.md).
 - **Sea-connected excavation v26:** water only fills a dug basin when a continuous submerged channel reaches the open sea; dams stop the flow. Dynamic coastal water geometry now follows edited ground across the landward board, the UI shows lagoon inlet connection, and trees/boats respond to flooding. See [v26 physics notes](docs/BEACH_V26_WATER_CONNECTIVITY_2026-10-29.md).
@@ -22,7 +23,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 - Dynamic sun, time-of-day display, wave height, whitewater foam intensity and simulation-speed controls.
 - Orbit, zoom, build sand, dig, rake, plant a tree, add rocks, launch a boat, erase, undo and reset.
 - Desktop/mobile adaptive UI: on phones, the tool palette collapses into a compact Tools button to keep the island visible; keyboard shortcuts 1–8, Space and Ctrl+Z remain available on desktop.
-- Repeatable terrain/vegetation generation with deterministic randomness. Centralized `COASTAL_ZONES` keeps surf overlap, wet beach, planting, forest, boat and reef positions consistent; 114 automated tests cover legacy simulation, lagoon geometry, sea connectivity, progressive donor-volume-limited water transfer, pause, submerged rocks and inland flood metrics.
+- Repeatable terrain/vegetation generation with deterministic randomness. Centralized `COASTAL_ZONES` keeps surf overlap, wet beach, planting, forest, boat and reef positions consistent; 117 automated tests cover legacy simulation, lagoon geometry, stable and progressive conservative water transfer, sandbar displacement, pause, submerged rocks and inland flood metrics.
 - JavaScript code splitting keeps the ~42 kB application chunk separate from the ~511 kB Three.js vendor chunk. The isolated Cloudflare Worker now caches content-hashed static assets for one year and makes HTML revalidate, with a self-test verifying exact decompressed bytes, HEAD, ETags, 404 and 405. The vendor chunk still triggers Vite's non-blocking size warning.
 
 ## Public demo
