@@ -40,6 +40,8 @@ The **v29 stabilized hydraulics QA Worker** is [shoreline-sandbox-3d-v29-qa.mams
 
 The **v30 boat-buoyancy and water-mesh QA Worker** is [shoreline-sandbox-3d-v30-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v30-qa.mamspa.workers.dev/). See the [v30 production release verification](docs/BEACH_V30_RELEASE_2026-10-29.md), including local 120/120 QA, deployed asset hash, limitations and v29 rollback.
 
+The **v31 low-FPS water-time QA Worker** is [shoreline-sandbox-3d-v31-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v31-qa.mamspa.workers.dev/). The [v31 production release report](docs/BEACH_V31_RELEASE_2026-10-29.md) records the frame-time correction, 125/125 tests, staging and production WebGL verification and v30 rollback.
+
 ## Quickstart
 
 Requires Node.js 20.19+ or 22.12+ (Node 24 works too).
