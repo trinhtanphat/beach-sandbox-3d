@@ -122,6 +122,10 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
   updateDisplay();
   return floodedCount;
  }
+ function restoreWater(saved){
+  fluid.restoreDepth(saved);
+  visualElapsed=0;visualDirty=false;updateDisplay();
+ }
  function advance(dt){
   const steps=fluid.advance(dt);
   if(steps>0)visualDirty=true;
@@ -135,7 +139,7 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
   return steps;
  }
  refresh({reset:true});
- return {mesh,refresh,advance,isConnected,waterDepth,get floodedCount(){return floodedCount;},
+ return {mesh,refresh,restoreWater,advance,isConnected,waterDepth,get floodedCount(){return floodedCount;},
   get metrics(){return {...metrics};},get geometryRefreshes(){return geometryRefreshes;},get fluid(){return fluid;},
   dispose(){scene.remove(mesh);geometry.dispose();material.dispose()}};
 }

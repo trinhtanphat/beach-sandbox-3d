@@ -110,6 +110,13 @@ export function createCoastalFlow({columns,rows,heights,reservoir,dx,dz,
   while(elapsed>=maxDt&&steps<8){singleStep();elapsed-=maxDt;steps++;}
   return steps;
  }
+ function restoreDepth(saved){
+  if(!saved||saved.length!==count)throw new RangeError('Incompatible saved water grid');
+  // Validate the entire input before making any partial state changes.
+  for(let i=0;i<count;i++)if(!Number.isFinite(saved[i])||saved[i]<0||saved[i]>2)
+   throw new RangeError('Invalid saved water depth');
+  depth.set(saved);elapsed=0;enforceOcean();updateWet();
+ }
  function snapshot(){
   return {bed:Float32Array.from(bed),depth:Float32Array.from(depth),wet:Uint8Array.from(wet)};
  }
@@ -119,7 +126,7 @@ export function createCoastalFlow({columns,rows,heights,reservoir,dx,dz,
   return v;
  }
  equilibrate();
- return {depth,wet,bed,source,dx,dz,cellArea,advance,setTerrain,snapshot,totalVolume,
+ return {depth,wet,bed,source,dx,dz,cellArea,advance,setTerrain,restoreDepth,snapshot,totalVolume,
   // Reports local water surface, allowing partial basin filling.
   surfaceAt(index){return bed[index]+depth[index];}
  };

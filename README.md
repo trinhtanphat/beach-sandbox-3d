@@ -7,6 +7,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 ## Features
 
 - Rebuilt 3D diorama with a coherent coastal biome: a broader pale-sand strand, 255 deliberately spaced tropical trees, shallow turquoise reef water, submerged coral and boats.
+- **Persistent trapped-water state v32:** Save/Load and exported island JSON preserve each basin's actual water volume even after an inlet is blocked by a sand dam. Legacy v1 files without water remain readable. See [v32 save/hydraulics notes](docs/BEACH_V32_WATER_SAVE_2026-10-29.md).
 - **Low-FPS hydraulic time correction v31:** keep water and world elapsed-time progression consistent at 3–120 visible FPS rather than slowing water to 24% of elapsed time at 3 FPS. Bounded catch-up keeps Pause, hidden tabs and long suspend gaps safe. See [v31 frame-time notes](docs/BEACH_V31_FRAME_TIME_2026-10-29.md).
 - **Local boat flotation and lightweight lagoon surface v30:** moored inland boats follow their actual local waterline instead of a fixed sea height; lagged visual mesh uploads run near 10 Hz independently of fixed-step hydraulic flow. Cached shore masks avoid repeated calculations. See [v30 technical notes](docs/BEACH_V30_FLOW_RENDER_2026-10-29.md).
 - **Stable lagoon water surface v29:** limit each face transfer by available hydraulic-head volume to prevent the default lagoon from draining and forming vertical water sheets; preserve pond volume when building underwater sandbars and keep dry-shore water mesh vertices at the local waterline. See [v29 stability notes](docs/BEACH_V29_HYDROSTATIC_STABILITY_2026-10-29.md).
@@ -25,7 +26,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 - Dynamic sun, time-of-day display, wave height, whitewater foam intensity and simulation-speed controls.
 - Orbit, zoom, build sand, dig, rake, plant a tree, add rocks, launch a boat, erase, undo and reset.
 - Desktop/mobile adaptive UI: on phones, the tool palette collapses into a compact Tools button to keep the island visible; keyboard shortcuts 1–8, Space and Ctrl+Z remain available on desktop.
-- Repeatable terrain/vegetation generation with deterministic randomness. Centralized `COASTAL_ZONES` keeps surf overlap, wet beach, planting, forest, boat and reef positions consistent; 125 automated tests cover legacy simulation, lagoon geometry, stable water transfer, sandbar displacement, low-FPS simulation clock, dynamic boat buoyancy, visual update throttling, pause and coastal ecology.
+- Repeatable terrain/vegetation generation with deterministic randomness. Centralized `COASTAL_ZONES` keeps surf overlap, wet beach, planting, forest, boat and reef positions consistent; 130 automated tests cover legacy simulation, lagoon geometry, stable water transfer, sandbar displacement, low-FPS timing, trapped-water Save/Load, dynamic boat buoyancy, pause and coastal ecology.
 - JavaScript code splitting keeps the ~42 kB application chunk separate from the ~511 kB Three.js vendor chunk. The isolated Cloudflare Worker now caches content-hashed static assets for one year and makes HTML revalidate, with a self-test verifying exact decompressed bytes, HEAD, ETags, 404 and 405. The vendor chunk still triggers Vite's non-blocking size warning.
 
 ## Public demo
