@@ -14,6 +14,7 @@ import { boatPose } from './ocean-surface.js';
 import { boatCurrentPosition } from './boat-current.js';
 import { lagoonWaterMotion,LAGOON_CENTER } from './lagoon-physics.js';
 import { createLagoonSurface } from './lagoon-surface.js';
+import {rockHeightOnEditedGround} from './coastal-metrics.js';
 import { createSeaDynamics } from './sea-dynamics.js';
 import { FOREST_COUNT, SEA_LEVEL, COASTAL_ZONES, planForest, submergedCenter, canPlace } from './world-layout.js';
 import './style.css';
@@ -232,8 +233,7 @@ const palmGrove=createPalmGrove(THREE,scene,shoreline,terrainHeight);
 
 const rockGeometry=new THREE.DodecahedronGeometry(1,0);
 function createRock(x,z,sc=1,rockMaterial=sandRockMaterial){
- const aboveShore=editedHeight(x,z)>SEA_LEVEL+.035;
- const baseY=aboveShore?editedHeight(x,z)+.10*sc:submergedCenter(editedHeight(x,z),.19*sc);
+ const baseY=rockHeightOnEditedGround(editedHeight(x,z),sc,submergedCenter);
  const rock=new THREE.Mesh(rockGeometry,rockMaterial);
  rock.position.set(x,baseY,z);
  rock.scale.set(.27*sc,.19*sc,.32*sc);rock.rotation.set(rand()*.25,rand()*6,rand()*.25);rock.castShadow=true;rock.receiveShadow=true;
@@ -359,7 +359,12 @@ function sampleGroundHeight(x,z){
  return top*(1-tz)+bottom*tz;
 }
 const lagoonSurface=createLagoonSurface(THREE,scene,sampleGroundHeight,shoreline,waveUniforms);
-function syncInletStatus(){document.getElementById('lagoon-flow').textContent=lagoonSurface.isConnected(LAGOON_CENTER.x,LAGOON_CENTER.z)?'Sea-connected':'Inlet blocked';}
+function syncInletStatus(){
+ document.getElementById('lagoon-flow').textContent=lagoonSurface.isConnected(LAGOON_CENTER.x,LAGOON_CENTER.z)?'Sea-connected':'Inlet blocked';
+ const flooded=lagoonSurface.metrics;
+ document.getElementById('inland-flooded-area').textContent=flooded.area.toFixed(1)+' units²';
+ document.getElementById('lagoon-mean-depth').textContent=flooded.meanDepth.toFixed(2)+' units';
+}
 syncInletStatus();
 function syncFoamElevation(){
   const pos=foamGeo.attributes.position;
@@ -380,7 +385,8 @@ function syncInstancedGroundDetails(){
   for(let i=0;i<group.points.length;i++){
    const record=group.points[i];
    if(landDistance(record.x,record.z)<=0)continue;
-   const nextY=editedHeight(record.x,record.z)+(record.sc ? .1*record.sc : .037);
+   const h=editedHeight(record.x,record.z);
+  const nextY=record.sc?rockHeightOnEditedGround(h,record.sc,submergedCenter):h+.037;
    const diff=nextY-record.y;
    if(Math.abs(diff)<.0005)continue;
    group.mesh.getMatrixAt(i,matrix);
@@ -419,6 +425,7 @@ function syncForestElevation(){
   changed=true;
  }
  if(changed)for(const mesh of [trunks,leaves,smallLeaves])mesh.instanceMatrix.needsUpdate=true;
+ updateLife();
 }
 function updateGeometry(){
  terrainPositions.needsUpdate=true;terrainGeometry.computeVertexNormals();
@@ -428,7 +435,7 @@ function updateGeometry(){
    const y=editedHeight(o.position.x,o.position.z);
    o.position.y=y;o.visible=y>SEA_LEVEL+.035;
   }
-  if(o.userData.kind==='rock')o.position.y=editedHeight(o.position.x,o.position.z)+(o.userData.baseOffset||0);
+  if(o.userData.kind==='rock')o.position.y=rockHeightOnEditedGround(editedHeight(o.position.x,o.position.z),o.userData.scale||1,submergedCenter);
  }
 }
 function sculpt(point){
@@ -459,7 +466,9 @@ function handleBrush(point){
  }
  updateLife();
 }
-function updateLife(){document.getElementById('life-count').textContent=`${FOREST_COUNT+interactiveItems.filter(o=>o.userData.kind==='tree').length} trees`;}
+function updateLife(){const planted=interactiveItems.filter(o=>o.userData.kind==='tree'&&o.visible).length;
+ const natural=forestLocations.filter(record=>record.renderY>-8).length;
+ document.getElementById('life-count').textContent=`${natural+planted} trees`;}
 function undo(){const state=history.pop();if(!state)return;
  if(state.type==='terrain'){for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,state.heights[i]);updateGeometry();syncForestElevation();syncFoamElevation();}
  else if(state.type==='added'){discardObject(state.object);interactiveItems.splice(interactiveItems.indexOf(state.object),1);}
