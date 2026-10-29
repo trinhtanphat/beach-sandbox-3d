@@ -4,12 +4,13 @@ import {LAGOON_SEA_LEVEL} from './lagoon-physics.js';
  * Spatially sampled, fixed-level inland water footprint.
  * Surface area and below-water capacity are in scene units, NOT physical m²/m³.
  */
-export function floodedInlandMetrics(heights,seaMask,columns,rows,bounds,shoreline,seaLevel=LAGOON_SEA_LEVEL){
+export function floodedInlandMetrics(heights,seaMask,columns,rows,bounds,shoreline,seaLevel=LAGOON_SEA_LEVEL,waterDepths=null){
  if(!Number.isInteger(columns)||columns<2||!Number.isInteger(rows)||rows<2||
    !heights||!seaMask||heights.length!==columns*rows||seaMask.length!==columns*rows||
    ![bounds.minX,bounds.maxX,bounds.minZ,bounds.maxZ,seaLevel].every(Number.isFinite)||
    bounds.maxX<=bounds.minX||bounds.maxZ<=bounds.minZ||typeof shoreline!=='function')
    throw new RangeError('Invalid flooded area grid');
+ if(waterDepths!==null&&waterDepths.length!==heights.length)throw new RangeError('Invalid water depth grid');
  const dx=(bounds.maxX-bounds.minX)/(columns-1),dz=(bounds.maxZ-bounds.minZ)/(rows-1);
  let floodedCells=0,depthSum=0;
  for(let zIndex=0;zIndex<rows;zIndex++){
@@ -18,7 +19,7 @@ export function floodedInlandMetrics(heights,seaMask,columns,rows,bounds,shoreli
    const i=zIndex*columns+xIndex;
    const x=bounds.minX+xIndex*dx;
    if(x>=shore||!seaMask[i]||!Number.isFinite(heights[i]))continue;
-   const depth=seaLevel-heights[i];
+   const depth=waterDepths===null?seaLevel-heights[i]:waterDepths[i];
    if(depth<=0)continue;
    floodedCells++;
    depthSum+=depth;
