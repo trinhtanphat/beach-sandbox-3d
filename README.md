@@ -49,6 +49,8 @@ The **v32 trapped-pond Save/Load QA Worker** is [shoreline-sandbox-3d-v32-qa.mam
 
 The **v33 live-Dig QA Worker** is [shoreline-sandbox-3d-v33-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v33-qa.mamspa.workers.dev/). See the [v33 release report](docs/BEACH_V33_RELEASE_2026-10-29.md) for 133/133 tests, in-browser water updates before mouseup and v32 rollback.
 
+The **v34 hydraulic Undo QA Worker** is [shoreline-sandbox-3d-v34-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v34-qa.mamspa.workers.dev/). The [v34 production release report](docs/BEACH_V34_RELEASE_2026-10-29.md) records the 136/136 tests and real Dig + Undo verification restoring both terrain and trapped water, with v33 rollback.
+
 ## Quickstart
 
 Requires Node.js 20.19+ or 22.12+ (Node 24 works too).
