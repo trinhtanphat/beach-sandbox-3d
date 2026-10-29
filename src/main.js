@@ -16,6 +16,7 @@ import { boatCurrentPosition } from './boat-current.js';
 import { lagoonWaterMotion,LAGOON_CENTER } from './lagoon-physics.js';
 import { createLagoonSurface } from './lagoon-surface.js';
 import {sculptGridRegion} from './sculpt-grid-region.js';
+import {captureTerrainUndo,restoreTerrainUndo} from './hydraulic-undo.js';
 import {inlandBoatHeight} from './inland-boat.js';
 import {rockHeightOnEditedGround} from './coastal-metrics.js';
 import { createSeaDynamics } from './sea-dynamics.js';
@@ -470,7 +471,7 @@ function sculpt(point){
   lastLiveWaterRefresh=now;
  }
 }
-function captureTerrain(){rememberChange({type:'terrain',heights:Float32Array.from(terrainPositions.array.filter((_,i)=>i%3===1))});}
+function captureTerrain(){rememberChange(captureTerrainUndo(terrainPositions,lagoonSurface.fluid.depth));}
 function handleBrush(point){
  if(['raise','lower','smooth'].includes(tool)){sculpt(point);return;}
  if(tool==='plant'&&canPlace('tree',point.x,point.z,editedHeight(point.x,point.z))&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
@@ -487,7 +488,14 @@ function updateLife(){const planted=interactiveItems.filter(o=>o.userData.kind==
  const natural=forestLocations.filter(record=>record.renderY>-8).length;
  document.getElementById('life-count').textContent=`${natural+planted} trees`;}
 function undo(){const state=history.pop();if(!state)return;
- if(state.type==='terrain'){for(let i=0;i<terrainPositions.count;i++)terrainPositions.setY(i,state.heights[i]);updateGeometry();syncFoamElevation();syncForestElevation();syncAddedWaterObjects();}
+ if(state.type==='terrain'){
+  const water=restoreTerrainUndo(terrainPositions,state,lagoonSurface.fluid.depth.length);
+  updateGeometry();syncFoamElevation();
+  // Restoring heights alone could leave a previously flooded pond full or
+  // drain a dammed pond. Undo must restore the same pre-stroke water volume.
+  lagoonSurface.restoreWater(water);syncInletStatus();
+  syncForestElevation();syncAddedWaterObjects();
+ }
  else if(state.type==='added'){discardObject(state.object);interactiveItems.splice(interactiveItems.indexOf(state.object),1);}
  else if(state.type==='removed'){restoreObject(state.object);interactiveItems.push(state.object);}
  updateLife();
