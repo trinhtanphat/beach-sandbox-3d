@@ -64,7 +64,9 @@ test('pause dt=0 is inert and depth obeys terrain refilling rules',()=>{
  terrain[2*16+2]-=.1;
  f.setTerrain(terrain);
  assert.equal(f.depth[2*16+2],before.depth[2*16+2],'digging must not invent water');
+ const volumeBeforeFill=f.totalVolume();
  terrain[2*16+2]+=.3;
  f.setTerrain(terrain);
- assert.ok(f.depth[2*16+2]<before.depth[2*16+2]);
+ assert.ok(Math.abs(f.totalVolume()-volumeBeforeFill)<1e-7,'adding sand must displace, not destroy water');
+ assert.equal(f.depth[2*16+2],before.depth[2*16+2],'bottom elevation changes the surface, not stored volume');
 });

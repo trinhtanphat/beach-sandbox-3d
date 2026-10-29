@@ -44,14 +44,10 @@ export function createCoastalFlow({columns,rows,heights,reservoir,dx,dz,
  function setTerrain(heights,{reset=false}={}){
   if(!heights||heights.length!==count)throw new RangeError('Invalid terrain size');
   for(let i=0;i<count;i++)if(!Number.isFinite(heights[i]))throw new RangeError('Non-finite terrain');
-  if(!reset){
-   // Raising sand displaces/removes local surface water; lowering a bed does
-   // not instantly create water volume in the excavated space.
-   for(let i=0;i<count;i++){
-    const newBed=heights[i],oldBed=bed[i];
-    if(newBed>oldBed)depth[i]=Math.max(0,depth[i]-(newBed-oldBed));
-   }
-  }
+  // Digging lowers the bottom without inventing water. Building sand
+  // raises the bottom while conserving the water column's volume; its newly
+  // elevated free surface drives flux to neighbours on subsequent steps.
+  // Never delete pond volume merely because the terrain underneath rose.
   bed.set(heights);
   if(reset){elapsed=0;equilibrate();}
   else {enforceOcean();updateWet();}
@@ -66,8 +62,15 @@ export function createCoastalFlow({columns,rows,heights,reservoir,dx,dz,
   const hydraulicDepth=Math.min(depth[from],head);
   // Face-based volume transfer; flow in a shallow connecting trench is
   // throttled by its wetted depth rather than jumping the far basin up.
-  const volume=conductance*faceWidth*hydraulicDepth*
+  const rawVolume=conductance*faceWidth*hydraulicDepth*
     Math.sqrt(2*gravity*Math.abs(headDiff))*maxDt;
+  // A numerical CFL bound is essential: the original pressure formula could
+  // move more water across a face than the head difference permits, even in a
+  // perfectly level lake. Repeated overshoots drained the lagoon and produced
+  // tall artificial sheets of water. Each cell has <= four faces; limiting
+  // face exchange to 16% of its head-difference volume prevents overshoot.
+  const headLimitedVolume=.16*Math.abs(headDiff)*cellArea;
+  const volume=Math.min(rawVolume,headLimitedVolume);
   if(volume<=0)return edgeCount;
   edgeFrom[edgeCount]=from;edgeTo[edgeCount]=to;
   edgeVolume[edgeCount]=volume;

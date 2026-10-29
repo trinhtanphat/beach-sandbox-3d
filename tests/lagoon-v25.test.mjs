@@ -55,7 +55,7 @@ test('lagoon surface refresh responds to raised terrain and disposes resources',
  const a=water.mesh.geometry.getAttribute('aWet');
  const before=a.getX(0);
  assert.ok(before>.99);
- floor=.3;water.refresh();
+ floor=.3;water.refresh({reset:true});
  assert.equal(a.getX(0),0);
  floor=-.1;water.refresh({reset:true});
  assert.ok(a.getX(0)>.99);

@@ -49,7 +49,7 @@ test('water surface exposes stable nonnegative inland metrics after sculpt reloa
   const before=model.metrics.capacity;
   level=-.22; model.refresh();
   assert.ok(model.metrics.capacity>before);
-  level=.6; model.refresh();
+  level=.6; model.refresh({reset:true});
   assert.equal(model.metrics.area,0);
   assert.equal(model.metrics.meanDepth,0);
  }finally{model.dispose()}
