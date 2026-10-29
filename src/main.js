@@ -506,7 +506,7 @@ function snapshotIsland() {
   z:o.userData.kind==='boat'?o.userData.anchorZ:o.position.z,
   scale:o.userData.scale||1
  }));
- return createSnapshot({heights,objects,wave:waveHeight,foam:foamIntensity,speed,hours});
+ return createSnapshot({heights,objects,water:lagoonSurface.fluid.depth,wave:waveHeight,foam:foamIntensity,speed,hours});
 }
 function saveIsland(){
  try {
@@ -520,6 +520,8 @@ function applyIsland(saved){
  for(let i=0;i<saved.heights.length;i++)terrainPositions.setY(i,saved.heights[i]);
  updateGeometry();
  syncFoamElevation({resetWater:true});
+ if(saved.water)lagoonSurface.restoreWater(saved.water);
+ syncInletStatus();
  syncForestElevation();
  for(const item of saved.objects){
   const o=item.kind==='tree'?createTree(item.x,item.z,item.scale):
@@ -547,7 +549,7 @@ function loadIsland(){
  try{
   const data=localStorage.getItem(SAVE_KEY);
   if(!data){toast('No saved island yet. Use Save first.');return;}
-  applyIsland(parseSnapshot(data,terrainPositions.count));
+  applyIsland(parseSnapshot(data,terrainPositions.count,lagoonSurface.fluid.depth.length));
  }catch(e){toast('Unable to load island: '+e.message);}
 }
 function downloadIslandJSON(){
@@ -565,7 +567,7 @@ async function importIslandJSON(event){
  if(!file)return;
  try{
   if(file.size>1600000)throw new Error('The selected file is too large');
-  const state=parseSnapshot(await file.text(),terrainPositions.count);
+  const state=parseSnapshot(await file.text(),terrainPositions.count,lagoonSurface.fluid.depth.length);
   applyIsland(state);
   toast('Island JSON imported successfully.');
  }catch(e){toast('Import failed: '+e.message);}
