@@ -31,6 +31,8 @@ Cloudflare Worker: [beach.qs3d.site](https://beach.qs3d.site/) — independent s
 
 The **v27 QA Worker** is [shoreline-sandbox-3d-v27-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v27-qa.mamspa.workers.dev/). The matching [v27 production release report](docs/BEACH_V27_RELEASE_2026-10-29.md) documents staging and live verification, model limitations and a v26 rollback.
 
+The **v28 progressive-hydraulics QA Worker** is [shoreline-sandbox-3d-v28-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v28-qa.mamspa.workers.dev/). See the [v28 production release and rollback report](docs/BEACH_V28_RELEASE_2026-10-29.md) for the verified GitHub commit, 114/114 tests and live HTTP/WebGL checks.
+
 ## Quickstart
 
 Requires Node.js 20.19+ or 22.12+ (Node 24 works too).
