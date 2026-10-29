@@ -15,6 +15,7 @@ import { boatPose } from './ocean-surface.js';
 import { boatCurrentPosition } from './boat-current.js';
 import { lagoonWaterMotion,LAGOON_CENTER } from './lagoon-physics.js';
 import { createLagoonSurface } from './lagoon-surface.js';
+import {sculptGridRegion} from './sculpt-grid-region.js';
 import {inlandBoatHeight} from './inland-boat.js';
 import {rockHeightOnEditedGround} from './coastal-metrics.js';
 import { createSeaDynamics } from './sea-dynamics.js';
@@ -450,20 +451,24 @@ function updateGeometry(){
   if(o.userData.kind==='rock')o.position.y=rockHeightOnEditedGround(editedHeight(o.position.x,o.position.z),o.userData.scale||1,submergedCenter);
  }
 }
+let lastLiveWaterRefresh=0;
 function sculpt(point){
- if(landDistance(point.x,point.z)<.0)return;
- const radius=brushSize;
- for(let i=0;i<terrainPositions.count;i++){
-   const x=terrainPositions.getX(i),z=terrainPositions.getZ(i);
-   const d=Math.hypot(point.x-x,point.z-z);
-   if(d>=radius || landDistance(x,z)<0) continue;
-   const influence=brushInfluence(d,radius);
-   const h=terrainPositions.getY(i);
-   if(tool==='raise')terrainPositions.setY(i,clamp(h+.017*influence,-.12,1.25));
-   if(tool==='lower')terrainPositions.setY(i,clamp(h-.017*influence,-.258,1.25));
-   if(tool==='smooth')terrainPositions.setY(i,h+(terrainHeight(x,z)-h)*.035*influence);
- }
+ if(landDistance(point.x,point.z)<0)return;
+ const result=sculptGridRegion({
+  positions:terrainPositions,columns:SEG_X+1,rows:SEG_Z+1,width:WIDTH,depth:DEPTH,
+  point,radius:brushSize,tool,landDistance,terrainHeight,brushInfluence,clamp
+ });
+ if(!result.changed)return;
  updateGeometry();
+ // The lagoon must react DURING a long Dig/Build drag, not only on mouse-up.
+ // Throttle costly coastal 22k-cell sampling; pointer-up remains exact.
+ const now=performance.now();
+ if(now-lastLiveWaterRefresh>=180){
+  lagoonSurface.refresh();
+  syncInletStatus();
+  syncAddedWaterObjects();
+  lastLiveWaterRefresh=now;
+ }
 }
 function captureTerrain(){rememberChange({type:'terrain',heights:Float32Array.from(terrainPositions.array.filter((_,i)=>i%3===1))});}
 function handleBrush(point){
