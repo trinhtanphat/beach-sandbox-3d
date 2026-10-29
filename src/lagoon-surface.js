@@ -14,14 +14,17 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
  const dx=(maxX-minX)/NX,dz=(maxZ-minZ)/NZ;
  const positions=[],uv=[],indices=[],samples=new Float32Array(COLS*ROWS);
  const reservoir=new Uint8Array(samples.length);
+ // Static shore opacity is computed once; it does not depend on water depth.
+ const coastalFades=new Float32Array(samples.length);
  const smooth=(a,b,v)=>{const t=Math.max(0,Math.min(1,(v-a)/(b-a)));return t*t*(3-2*t)};
  for(let iz=0;iz<=NZ;iz++){
-  const z=minZ+iz*dz;
+  const z=minZ+iz*dz,shore=coast(z);
   for(let ix=0;ix<=NX;ix++){
    const x=minX+ix*dx,index=iz*COLS+ix;
    const floor=groundHeight(x,z);
    samples[index]=floor;
-   reservoir[index]=(ix===NX||x>coast(z)+.16)&&floor<LAGOON_SEA_LEVEL-.004?1:0;
+   reservoir[index]=(ix===NX||x>shore+.16)&&floor<LAGOON_SEA_LEVEL-.004?1:0;
+   coastalFades[index]=1-smooth(shore-.06,shore+.27,x);
    positions.push(x,LAGOON_SEA_LEVEL+.015,z);
    uv.push(ix/NX,iz/NZ);
    if(ix<NX&&iz<NZ){const a=iz*COLS+ix,b=a+COLS;indices.push(a,b,a+1,b,b+1,a+1);}
@@ -70,6 +73,9 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
  mesh.renderOrder=5;mesh.frustumCulled=false;scene.add(mesh);
  let connection=new Uint8Array(samples.length),floodedCount=0;
  let metrics={floodedCells:0,area:0,capacity:0,meanDepth:0};
+ // Keep the hydraulic solver at fixed substeps; upload full GPU water geometry
+ // no more than ~10Hz. Shader ripples still animate each rendered frame.
+ let visualElapsed=0,geometryRefreshes=0,visualDirty=false;
  function gridIndex(x,z){
   if(x<minX||x>maxX||z<minZ||z>maxZ)return -1;
   return Math.max(0,Math.min(NZ,Math.round((z-minZ)/dz)))*COLS+
@@ -78,12 +84,12 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
  function isConnected(x,z){const i=gridIndex(x,z);return i>=0&&connection[i]===1;}
  function waterDepth(x,z){const i=gridIndex(x,z);return i>=0?fluid.depth[i]:0;}
  function updateDisplay(){
+  geometryRefreshes++;
   const pos=geometry.getAttribute('position'),wet=geometry.getAttribute('aWet');
   const depthAttr=geometry.getAttribute('aDepth');
   floodedCount=0;
   for(let i=0;i<samples.length;i++){
-   const depth=fluid.depth[i],x=positions[i*3],z=positions[i*3+2];
-   const coastalFade=1-smooth(coast(z)-.06,coast(z)+.27,x);
+   const depth=fluid.depth[i];
    // Cell has volume only if hydraulic flux delivered it, not merely a
    // global reachability lookup. The surface rises as that volume grows.
    // Dry terrain is never part of the water sheet. Keep its zero-alpha
@@ -93,14 +99,14 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
    if(depth<=.003){
     const ix=i%COLS,iz=(i-ix)/COLS;
     let neighborLevel=0,neighborCount=0;
-    const near=[ix>0?i-1:-1,ix<NX?i+1:-1,iz>0?i-COLS:-1,iz<NZ?i+COLS:-1];
-    for(const j of near)if(j>=0&&fluid.depth[j]>.003){
-     neighborLevel+=samples[j]+fluid.depth[j];neighborCount++;
-    }
+    if(ix>0&&fluid.depth[i-1]>.003){neighborLevel+=samples[i-1]+fluid.depth[i-1];neighborCount++;}
+    if(ix<NX&&fluid.depth[i+1]>.003){neighborLevel+=samples[i+1]+fluid.depth[i+1];neighborCount++;}
+    if(iz>0&&fluid.depth[i-COLS]>.003){neighborLevel+=samples[i-COLS]+fluid.depth[i-COLS];neighborCount++;}
+    if(iz<NZ&&fluid.depth[i+COLS]>.003){neighborLevel+=samples[i+COLS]+fluid.depth[i+COLS];neighborCount++;}
     surface=neighborCount?neighborLevel/neighborCount:LAGOON_SEA_LEVEL;
    }
    pos.setY(i,surface+.012);
-   wet.setX(i,smooth(.002,.03,depth)*coastalFade);
+   wet.setX(i,smooth(.002,.03,depth)*coastalFades[i]);
    depthAttr.setX(i,depth);
    if(depth>.003)floodedCount++;
   }
@@ -111,17 +117,25 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
  function refresh({reset=false}={}){
   for(let i=0;i<samples.length;i++)samples[i]=groundHeight(positions[i*3],positions[i*3+2]);
   fluid.setTerrain(samples,{reset});
+  visualElapsed=0;visualDirty=false;
   connection=connectedSeaMask(samples,COLS,ROWS,LAGOON_SEA_LEVEL).connected;
   updateDisplay();
   return floodedCount;
  }
  function advance(dt){
   const steps=fluid.advance(dt);
-  if(steps>0)updateDisplay();
+  if(steps>0)visualDirty=true;
+  // Count wall-clock simulation frame time even on frames with no solver step.
+  // Otherwise an ~60 Hz renderer would refresh its water surface only ~2 Hz.
+  if(!Number.isFinite(dt)||dt<0)return steps;
+  visualElapsed+=dt;
+  if(visualDirty&&visualElapsed>=.10){
+   visualElapsed=0;visualDirty=false;updateDisplay();
+  }
   return steps;
  }
  refresh({reset:true});
  return {mesh,refresh,advance,isConnected,waterDepth,get floodedCount(){return floodedCount;},
-  get metrics(){return {...metrics};},get fluid(){return fluid;},
+  get metrics(){return {...metrics};},get geometryRefreshes(){return geometryRefreshes;},get fluid(){return fluid;},
   dispose(){scene.remove(mesh);geometry.dispose();material.dispose()}};
 }
