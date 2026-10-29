@@ -25,7 +25,7 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 
 ## Public demo
 
-Cloudflare Worker: [beach.qs3d.site](https://beach.qs3d.site/) — independent static Worker deployment, no project DB or API credentials. Previous staging is [shoreline-sandbox-3d-stage.hikvision.workers.dev](https://shoreline-sandbox-3d-stage.hikvision.workers.dev/). The isolated **v25 preview** is [shoreline-sandbox-3d-v25-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v25-qa.mamspa.workers.dev/).
+Cloudflare Worker: [beach.qs3d.site](https://beach.qs3d.site/) — independent static Worker deployment, no project DB or API credentials. Previous staging is [shoreline-sandbox-3d-stage.hikvision.workers.dev](https://shoreline-sandbox-3d-stage.hikvision.workers.dev/). The isolated **v25 preview** is [shoreline-sandbox-3d-v25-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v25-qa.mamspa.workers.dev/), and the separate **v26 preview** is [shoreline-sandbox-3d-v26-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v26-qa.mamspa.workers.dev/). See [v26 production release verification](docs/BEACH_V26_RELEASE_2026-10-29.md).
 
 ## Quickstart
 
