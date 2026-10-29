@@ -12,7 +12,7 @@ import { createFrameMetrics } from './frame-metrics.js';
 import { createAdaptiveResolution } from './adaptive-resolution.js';
 import { boatPose } from './ocean-surface.js';
 import { boatCurrentPosition } from './boat-current.js';
-import { lagoonWaterMotion } from './lagoon-physics.js';
+import { lagoonWaterMotion,LAGOON_CENTER } from './lagoon-physics.js';
 import { createLagoonSurface } from './lagoon-surface.js';
 import { createSeaDynamics } from './sea-dynamics.js';
 import { FOREST_COUNT, SEA_LEVEL, COASTAL_ZONES, planForest, submergedCenter, canPlace } from './world-layout.js';
@@ -219,7 +219,7 @@ const forestPlan=planForest();
 for(let i=0;i<forestPlan.length;i++) {
  const {x,z,scale:sc}=forestPlan[i];
  const y=terrainHeight(x,z);
- forestLocations.push({x,z,y});
+ forestLocations.push({x,z,y,renderY:y});
  tempObject.position.set(x,y+.17*sc,z);tempObject.scale.set(sc,sc,sc);tempObject.rotation.set(0,rand()*6,0);tempObject.updateMatrix();trunks.setMatrixAt(i,tempObject.matrix);
  tempObject.position.set(x,y+.40*sc,z);tempObject.scale.set(sc*(.9+rand()*.28),sc*(.8+rand()*.22),sc*(.9+rand()*.3));tempObject.updateMatrix();leaves.setMatrixAt(i,tempObject.matrix);
  tempObject.position.set(x+.1*sc,y+.43*sc,z+.1*sc);tempObject.scale.set(sc*.6,sc*.62,sc*.62);tempObject.updateMatrix();smallLeaves.setMatrixAt(i,tempObject.matrix);
@@ -359,6 +359,8 @@ function sampleGroundHeight(x,z){
  return top*(1-tz)+bottom*tz;
 }
 const lagoonSurface=createLagoonSurface(THREE,scene,sampleGroundHeight,shoreline,waveUniforms);
+function syncInletStatus(){document.getElementById('lagoon-flow').textContent=lagoonSurface.isConnected(LAGOON_CENTER.x,LAGOON_CENTER.z)?'Sea-connected':'Inlet blocked';}
+syncInletStatus();
 function syncFoamElevation(){
   const pos=foamGeo.attributes.position;
   for(let i=0;i<pos.count;i++){
@@ -369,6 +371,7 @@ function syncFoamElevation(){
   foamGeo.computeBoundingSphere();
   syncInstancedGroundDetails();
   lagoonSurface.refresh();
+  syncInletStatus();
 }
 function syncInstancedGroundDetails(){
  const matrix=new THREE.Matrix4();
@@ -404,14 +407,15 @@ function syncForestElevation(){
  let changed=false;
  for(let i=0;i<forestLocations.length;i++){
   const record=forestLocations[i], y=editedHeight(record.x,record.z);
-  const diff=y-record.y;
-  if(Math.abs(diff)<.0005)continue;
+  const renderY=y>SEA_LEVEL+.035?y:-9;
+  const diff=renderY-record.renderY;
+  if(Math.abs(diff)<.0005){record.y=y;continue;}
   for(const mesh of [trunks,leaves,smallLeaves]){
    mesh.getMatrixAt(i,m);
    m.elements[13]+=diff;
    mesh.setMatrixAt(i,m);
   }
-  record.y=y;
+  record.y=y;record.renderY=renderY;
   changed=true;
  }
  if(changed)for(const mesh of [trunks,leaves,smallLeaves])mesh.instanceMatrix.needsUpdate=true;
@@ -420,7 +424,10 @@ function updateGeometry(){
  terrainPositions.needsUpdate=true;terrainGeometry.computeVertexNormals();
  for(const o of interactiveItems){
   if(landDistance(o.position.x,o.position.z)<=0)continue;
-  if(o.userData.kind==='tree')o.position.y=editedHeight(o.position.x,o.position.z);
+  if(o.userData.kind==='tree'){
+   const y=editedHeight(o.position.x,o.position.z);
+   o.position.y=y;o.visible=y>SEA_LEVEL+.035;
+  }
   if(o.userData.kind==='rock')o.position.y=editedHeight(o.position.x,o.position.z)+(o.userData.baseOffset||0);
  }
 }
@@ -434,7 +441,7 @@ function sculpt(point){
    const influence=brushInfluence(d,radius);
    const h=terrainPositions.getY(i);
    if(tool==='raise')terrainPositions.setY(i,clamp(h+.017*influence,-.12,1.25));
-   if(tool==='lower')terrainPositions.setY(i,clamp(h-.017*influence,-.12,1.25));
+   if(tool==='lower')terrainPositions.setY(i,clamp(h-.017*influence,-.258,1.25));
    if(tool==='smooth')terrainPositions.setY(i,h+(terrainHeight(x,z)-h)*.035*influence);
  }
  updateGeometry();
@@ -444,7 +451,7 @@ function handleBrush(point){
  if(['raise','lower','smooth'].includes(tool)){sculpt(point);return;}
  if(tool==='plant'&&canPlace('tree',point.x,point.z,editedHeight(point.x,point.z))&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='rock'&&canPlace('rock',point.x,point.z)&&mayPlaceObject()){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);rememberChange({type:'added',object:m});}
- if(tool==='boat'&&canPlace('boat',point.x,point.z,editedHeight(point.x,point.z))&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='boat'&&canPlace('boat',point.x,point.z,editedHeight(point.x,point.z),lagoonSurface.isConnected(point.x,point.z))&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='erase'){
    let closest=null,best=brushSize;
    for(const o of interactiveItems){const d=Math.hypot(o.position.x-point.x,o.position.z-point.z);if(d<best){best=d;closest=o;}}
@@ -722,7 +729,9 @@ function animate(){requestAnimationFrame(animate);
  for(const b of boats){
    if(!b.parent)continue;
    const anchorX=b.userData.anchorX,anchorZ=b.userData.anchorZ;
-   if(landDistance(anchorX,anchorZ)>0 && sampleGroundHeight(anchorX,anchorZ)<SEA_LEVEL-.045){
+   if(landDistance(anchorX,anchorZ)>0){
+     b.visible=lagoonSurface.isConnected(anchorX,anchorZ)&&sampleGroundHeight(anchorX,anchorZ)<SEA_LEVEL-.045;
+     if(!b.visible)continue;
      const motion=lagoonWaterMotion(anchorX,anchorZ,elapsed,sea.wave);
      b.position.x=anchorX+motion.vx;
      b.position.z=anchorZ+motion.vz;
@@ -731,6 +740,7 @@ function animate(){requestAnimationFrame(animate);
      b.rotation.z=Math.cos(elapsed*.91+b.userData.phase)*.022*sea.wave;
      continue;
    }
+   b.visible=true;
    const current=boatCurrentPosition(elapsed,
      b.userData.anchorX,b.userData.anchorZ,b.userData.phase||0);
    b.position.x=current.x;b.position.z=current.z;

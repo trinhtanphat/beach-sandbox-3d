@@ -52,14 +52,14 @@ export function submergedCenter(floor,verticalExtent,waterLevel=SEA_LEVEL){
 }
 
 /** Consistent biome rules for interactive placement as well as natural scatter. */
-export function canPlace(kind,x,z,groundY=null){
+export function canPlace(kind,x,z,groundY=null,seaConnected=null){
   if(!Number.isFinite(x)||!Number.isFinite(z)||Math.abs(x)>WIDTH/2-.2||Math.abs(z)>DEPTH/2-.2)return false;
   if(groundY===null)groundY=terrainHeight(x,z);
   if(!Number.isFinite(groundY))return false;
   const d=landDistance(x,z);
   if(kind==='tree')return d>=COASTAL_ZONES.plantMinLand&&groundY>SEA_LEVEL+.035; // dry roots
   if(kind==='boat')return groundY<SEA_LEVEL-.045&&
-    (d<=-COASTAL_ZONES.boatMinOffshore||lagoonProfile(x,z).wetland>.43);
+    (d<=-COASTAL_ZONES.boatMinOffshore||(seaConnected===null?lagoonProfile(x,z).wetland>.43:seaConnected));
   if(kind==='rock')return true; // reef rock underwater or beach rock on land
   return false;
 }

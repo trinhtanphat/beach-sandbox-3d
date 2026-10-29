@@ -45,7 +45,7 @@
         <div class="condition"><span>Whitewater foam</span><strong id="foam-label">100%</strong></div>
         <input id="foam" type="range" min="0.3" max="1.8" step="0.1" value="1" aria-label="Whitewater foam intensity" />
         <div class="condition"><span>Sea clarity</span><strong>Crystal</strong></div><div class="condition"><span>Ambient sound</span><strong id="ambient-volume-value">42%</strong></div><input id="ambient-volume" type="range" min="0" max="100" step="5" value="42" aria-label="Ambient sound volume">
-        <div class="condition"><span>Island life</span><strong id="life-count">—</strong></div><div class="condition"><span>Seabirds</span><strong id="bird-count">14 flying</strong></div>
+        <div class="condition"><span>Island life</span><strong id="life-count">—</strong></div><div class="condition"><span>Lagoon inlet</span><strong id="lagoon-flow">Checking…</strong></div><div class="condition"><span>Seabirds</span><strong id="bird-count">14 flying</strong></div>
         <div class="condition"><span>Render speed</span><strong id="fps-label">— FPS</strong></div>
       </section>
     </div>
@@ -61,7 +61,7 @@
     <div class="hint-box glass-card" id="hint"><span class="hint-dot"></span><p>Drag to orbit. Scroll to zoom. Choose a tool to shape your shoreline.</p><button id="dismiss-hint" aria-label="Dismiss tip">×</button></div>
     <div id="status-toast" class="status-toast" role="status" aria-live="polite" hidden></div>
     <div class="credit">AN INTERACTIVE COASTAL PLAYGROUND <span>•</span> THREE.JS + WEBGL</div>
-    <dialog id="help"><h2>Welcome to Shoreline.</h2><p>It's a tiny ocean you can play with. Waves wash along a procedurally generated beach as the sun travels overhead.</p><ul><li>Drag the scene to orbit; scroll to zoom.</li><li>Select Build sand, Dig or Rake and drag on terrain.</li><li>Plant trees, scatter rocks or launch boats.</li><li>Pause the clock, dial up wave energy, or adjust the sun using the time dial.</li><li>Press Sound to hear generated surf and occasional seabird calls. Sound starts only after your click.</li><li>Use keys 1–8 to change tools; Space to pause.</li></ul><button id="close-help">Got it →</button></dialog>
+    <dialog id="help"><h2>Welcome to Shoreline.</h2><p>It's a tiny ocean you can play with. Waves wash along a procedurally generated beach as the sun travels overhead.</p><ul><li>Drag the scene to orbit; scroll to zoom.</li><li>Select Build sand, Dig or Rake and drag on terrain. Dig a channel to the sea to flood a low basin; isolated holes remain dry.</li><li>Plant trees, scatter rocks or launch boats.</li><li>Pause the clock, dial up wave energy, or adjust the sun using the time dial.</li><li>Press Sound to hear generated surf and occasional seabird calls. Sound starts only after your click.</li><li>Use keys 1–8 to change tools; Space to pause.</li></ul><button id="close-help">Got it →</button></dialog>
   </div>
 </div>
 <script type="module" src="/src/main.js"></script>
