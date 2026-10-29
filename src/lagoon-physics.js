@@ -29,6 +29,35 @@ export function lagoonWaterDepth(terrainY,seaLevel=LAGOON_SEA_LEVEL){
 export function lagoonWetness(terrainY,seaLevel=LAGOON_SEA_LEVEL){
  return ease((seaLevel-terrainY+.004)/.075);
 }
+/**
+ * A low spot only floods if a continuous 4-connected submerged route reaches
+ * the seaward edge. Diagonal contacts cannot leak through a one-cell sand dam.
+ * Heights use the terrain mesh's sampled physical elevations, not colors.
+ */
+export function connectedSeaMask(heights,columns,rows,seaLevel=LAGOON_SEA_LEVEL){
+ if(!Number.isInteger(columns)||columns<2||!Number.isInteger(rows)||rows<2||
+    !heights||heights.length!==columns*rows||!Number.isFinite(seaLevel))
+   throw new RangeError('Invalid coastal water grid');
+ const size=columns*rows,connected=new Uint8Array(size),queue=new Int32Array(size);
+ const wet=k=>Number.isFinite(heights[k])&&heights[k]<seaLevel-.004;
+ let tail=0;
+ // The right-hand grid edge overlaps the known open ocean.
+ for(let row=0;row<rows;row++){
+  const idx=row*columns+columns-1;
+  if(wet(idx)){connected[idx]=1;queue[tail++]=idx;}
+ }
+ for(let head=0;head<tail;head++){
+  const at=queue[head],x=at%columns,y=(at-x)/columns;
+  const neighbors=[x>0?at-1:-1,x<columns-1?at+1:-1,y>0?at-columns:-1,y<rows-1?at+columns:-1];
+  for(const next of neighbors){
+   if(next>=0&&!connected[next]&&wet(next)){
+    connected[next]=1;queue[tail++]=next;
+   }
+  }
+ }
+ return {connected,count:tail};
+}
+
 export function lagoonWaterMotion(x,z,time,wave=1){
  // Shore-friction attenuates swell inside the sheltered basin.
  const {basin,channel}=lagoonProfile(x,z);

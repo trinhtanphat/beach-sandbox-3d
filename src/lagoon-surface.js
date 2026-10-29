@@ -1,31 +1,34 @@
-import {LAGOON_LIMITS,LAGOON_SEA_LEVEL,lagoonWetness,lagoonWaterDepth} from './lagoon-physics.js';
+import {WIDTH,DEPTH,shoreline} from './simulation.js';
+import {LAGOON_SEA_LEVEL,lagoonWetness,lagoonWaterDepth,connectedSeaMask} from './lagoon-physics.js';
+
 /**
- * Flat bathymetry-clipped lagoon surface. Terrain always occludes the mesh;
- * vertices are refreshed on sculpt commit, Undo, Reset and Load.
- * Shared sea-state uniforms ensure Pause/Sun/Wave remain coherent.
+ * Sea-connected water, sampled on a full-coast grid. Digging an isolated pit
+ * does not magically fill it; opening a continuous trench floods it at the
+ * fixed sea level. The existing offshore surf mesh stays unchanged.
  */
 export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
- const NX=116,NZ=94,{minX,maxX,minZ,maxZ}=LAGOON_LIMITS;
- const values=[],uvs=[],depths=[],wet=[],indices=[];
+ const NX=184,NZ=120,COLS=NX+1,ROWS=NZ+1;
+ const minX=-WIDTH/2,maxX=2.8,minZ=-DEPTH/2,maxZ=DEPTH/2;
+ const positions=[],uv=[],indices=[];
+ const samples=new Float32Array(COLS*ROWS);
  const smooth=(a,b,v)=>{const t=Math.max(0,Math.min(1,(v-a)/(b-a)));return t*t*(3-2*t)};
  for(let iz=0;iz<=NZ;iz++){
   const z=minZ+(maxZ-minZ)*iz/NZ;
   for(let ix=0;ix<=NX;ix++){
    const x=minX+(maxX-minX)*ix/NX;
-   values.push(x,LAGOON_SEA_LEVEL+.015,z);
-   uvs.push(ix/NX,iz/NZ);
-   depths.push(0);wet.push(0);
+   positions.push(x,LAGOON_SEA_LEVEL+.015,z);
+   uv.push(ix/NX,iz/NZ);
    if(ix<NX&&iz<NZ){
-    const a=iz*(NX+1)+ix,b=a+NX+1;
+    const a=iz*COLS+ix,b=a+COLS;
     indices.push(a,b,a+1,b,b+1,a+1);
    }
   }
  }
  const geometry=new THREE.BufferGeometry();
- geometry.setAttribute('position',new THREE.Float32BufferAttribute(values,3));
- geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
- geometry.setAttribute('aWet',new THREE.Float32BufferAttribute(wet,1));
- geometry.setAttribute('aDepth',new THREE.Float32BufferAttribute(depths,1));
+ geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+ geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+ geometry.setAttribute('aWet',new THREE.Float32BufferAttribute(new Float32Array(samples.length),1));
+ geometry.setAttribute('aDepth',new THREE.Float32BufferAttribute(new Float32Array(samples.length),1));
  geometry.setIndex(indices);
  const material=new THREE.ShaderMaterial({
   uniforms,side:THREE.DoubleSide,transparent:true,depthWrite:false,
@@ -59,17 +62,42 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
  });
  const mesh=new THREE.Mesh(geometry,material);
  mesh.renderOrder=5;mesh.frustumCulled=false;scene.add(mesh);
+ let waterMask=new Uint8Array(samples.length);
+ let floodedCount=0;
+ function gridIndex(x,z){
+  if(x<minX||x>maxX||z<minZ||z>maxZ)return -1;
+  const ix=Math.max(0,Math.min(NX,Math.round((x-minX)/(maxX-minX)*NX)));
+  const iz=Math.max(0,Math.min(NZ,Math.round((z-minZ)/(maxZ-minZ)*NZ)));
+  return iz*COLS+ix;
+ }
+ function isConnected(x,z){
+  const index=gridIndex(x,z);
+  return index>=0&&waterMask[index]===1;
+ }
  function refresh(){
   const wetAttr=geometry.getAttribute('aWet'),depthAttr=geometry.getAttribute('aDepth');
-  for(let i=0;i<wetAttr.count;i++){
-   const x=values[i*3],z=values[i*3+2];
-   const h=groundHeight(x,z);
+  for(let i=0;i<samples.length;i++){
+   samples[i]=groundHeight(positions[i*3],positions[i*3+2]);
+  }
+  const result=connectedSeaMask(samples,COLS,ROWS,LAGOON_SEA_LEVEL);
+  waterMask=result.connected;
+  floodedCount=result.count;
+  for(let i=0;i<samples.length;i++){
+   const x=positions[i*3],z=positions[i*3+2];
+   const h=samples[i];
+   // A thin connected wet-sand border softens the bank but cannot cross a dam.
+   const iy=Math.floor(i/COLS),ix=i%COLS;
+   const touchesWater=(ix>0&&waterMask[i-1])||(ix<NX&&waterMask[i+1])||
+      (iy>0&&waterMask[i-COLS])||(iy<NZ&&waterMask[i+COLS]);
    const coastalFade=1-smooth(coast(z)-.06,coast(z)+.27,x);
-   wetAttr.setX(i,lagoonWetness(h)*coastalFade);
+   const flooded=waterMask[i]||(h<LAGOON_SEA_LEVEL+.018&&touchesWater);
+   wetAttr.setX(i,flooded?lagoonWetness(h)*coastalFade:0);
    depthAttr.setX(i,lagoonWaterDepth(h));
   }
   wetAttr.needsUpdate=true;depthAttr.needsUpdate=true;
+  return floodedCount;
  }
  refresh();
- return {mesh,refresh,dispose(){scene.remove(mesh);geometry.dispose();material.dispose()}};
+ return {mesh,refresh,isConnected,get floodedCount(){return floodedCount;},
+  dispose(){scene.remove(mesh);geometry.dispose();material.dispose()}};
 }
