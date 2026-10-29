@@ -57,7 +57,7 @@ test('lagoon surface refresh responds to raised terrain and disposes resources',
  assert.ok(before>.99);
  floor=.3;water.refresh();
  assert.equal(a.getX(0),0);
- floor=-.1;water.refresh();
+ floor=-.1;water.refresh({reset:true});
  assert.ok(a.getX(0)>.99);
  assert.ok(water.mesh.material.fragmentShader.includes('uDay'));
  water.dispose();assert.equal(scene.children.length,0);
