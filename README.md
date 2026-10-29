@@ -28,6 +28,8 @@ A standalone, interactive, real-time beach sandbox, inspired by a reference scre
 
 Cloudflare Worker: [beach.qs3d.site](https://beach.qs3d.site/) — independent static Worker deployment, no project DB or API credentials. Previous staging is [shoreline-sandbox-3d-stage.hikvision.workers.dev](https://shoreline-sandbox-3d-stage.hikvision.workers.dev/). The isolated **v25 preview** is [shoreline-sandbox-3d-v25-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v25-qa.mamspa.workers.dev/), and the separate **v26 preview** is [shoreline-sandbox-3d-v26-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v26-qa.mamspa.workers.dev/). See [v26 production release verification](docs/BEACH_V26_RELEASE_2026-10-29.md).
 
+The **v27 QA Worker** is [shoreline-sandbox-3d-v27-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v27-qa.mamspa.workers.dev/). The matching [v27 production release report](docs/BEACH_V27_RELEASE_2026-10-29.md) documents staging and live verification, model limitations and a v26 rollback.
+
 ## Quickstart
 
 Requires Node.js 20.19+ or 22.12+ (Node 24 works too).
