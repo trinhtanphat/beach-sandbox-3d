@@ -1,5 +1,6 @@
 import {WIDTH,DEPTH,shoreline} from './simulation.js';
 import {LAGOON_SEA_LEVEL,lagoonWetness,lagoonWaterDepth,connectedSeaMask} from './lagoon-physics.js';
+import {floodedInlandMetrics} from './coastal-metrics.js';
 
 /**
  * Sea-connected water, sampled on a full-coast grid. Digging an isolated pit
@@ -64,6 +65,7 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
  mesh.renderOrder=5;mesh.frustumCulled=false;scene.add(mesh);
  let waterMask=new Uint8Array(samples.length);
  let floodedCount=0;
+ let coastalMetrics={floodedCells:0,area:0,capacity:0,meanDepth:0};
  function gridIndex(x,z){
   if(x<minX||x>maxX||z<minZ||z>maxZ)return -1;
   const ix=Math.max(0,Math.min(NX,Math.round((x-minX)/(maxX-minX)*NX)));
@@ -82,6 +84,7 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
   const result=connectedSeaMask(samples,COLS,ROWS,LAGOON_SEA_LEVEL);
   waterMask=result.connected;
   floodedCount=result.count;
+  coastalMetrics=floodedInlandMetrics(samples,waterMask,COLS,ROWS,{minX,maxX,minZ,maxZ},coast,LAGOON_SEA_LEVEL);
   for(let i=0;i<samples.length;i++){
    const x=positions[i*3],z=positions[i*3+2];
    const h=samples[i];
@@ -98,6 +101,6 @@ export function createLagoonSurface(THREE,scene,groundHeight,coast,uniforms){
   return floodedCount;
  }
  refresh();
- return {mesh,refresh,isConnected,get floodedCount(){return floodedCount;},
+ return {mesh,refresh,isConnected,get floodedCount(){return floodedCount;},get metrics(){return {...coastalMetrics};},
   dispose(){scene.remove(mesh);geometry.dispose();material.dispose()}};
 }
