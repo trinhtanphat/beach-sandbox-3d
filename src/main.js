@@ -10,6 +10,7 @@ import { createSurfSpray } from './surf-spray.js';
 import { createBreakerLip } from './breaker-lip.js';
 import { createFrameMetrics } from './frame-metrics.js';
 import { createAdaptiveResolution } from './adaptive-resolution.js';
+import {frameSimulationDelta} from './frame-simulation-time.js';
 import { boatPose } from './ocean-surface.js';
 import { boatCurrentPosition } from './boat-current.js';
 import { lagoonWaterMotion,LAGOON_CENTER } from './lagoon-physics.js';
@@ -682,7 +683,10 @@ const adaptiveResolution=createAdaptiveResolution({cap:initialDprCap,min:Math.mi
 let fpsSeconds=0,fpsFrames=0;
 function animate(){requestAnimationFrame(animate);
  const rawDelta=watch.getDelta();
- const dt=Math.min(rawDelta,.08);
+ // Keep water and animation close to wall-clock time even at 3 FPS;
+ // the hydraulic solver has its own conservative 0.06-second substeps.
+ const dt=frameSimulationDelta(rawDelta,{hidden:document.hidden});
+ const simDt=frameSimulationDelta(rawDelta,{speed,paused,hidden:document.hidden});
  if(frameMetrics){
    frameMetrics.addFrame(rawDelta,{hidden:document.hidden});
    perfRefreshElapsed+=rawDelta;
@@ -711,9 +715,10 @@ function animate(){requestAnimationFrame(animate);
   if(nextDpr!==null){renderer.setPixelRatio(nextDpr);resize();}
   fpsSeconds=0;fpsFrames=0;
  }
- if(!paused){elapsed+=dt*speed;hours=(hours+dt*speed*.052)%24;
-  // Hydraulic flux is advanced in fixed substeps and freezes on Pause.
-  const steps=lagoonSurface.advance(dt*speed);
+ if(simDt>0){elapsed+=simDt;hours=(hours+simDt*.052)%24;
+  // Physics no longer falls behind solely because the renderer drops frames.
+  // The solver bounds each update to eight conservative 0.06-second steps.
+  const steps=lagoonSurface.advance(simDt);
   waterUiElapsed+=dt;
   if(steps&&waterUiElapsed>=.35){
    waterUiElapsed=0;syncInletStatus();syncForestElevation();syncAddedWaterObjects();
