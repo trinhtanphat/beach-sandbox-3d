@@ -61,7 +61,10 @@ export function canPlace(kind,x,z,groundY=null,seaConnected=null,localWaterDepth
   if(groundY===null)groundY=terrainHeight(x,z);
   if(!Number.isFinite(groundY))return false;
   const d=landDistance(x,z);
-  if(kind==='tree')return d>=COASTAL_ZONES.plantMinLand&&groundY>SEA_LEVEL+.035; // dry roots
+  if(kind==='tree')return d>=COASTAL_ZONES.plantMinLand&&groundY>SEA_LEVEL+.035&&
+    // A dammed pond can have water above the nominal open-sea elevation.
+    // Root safety follows actual local flood depth, not global sea level.
+    (localWaterDepth===null||(Number.isFinite(localWaterDepth)&&localWaterDepth>=0&&localWaterDepth<.045));
   if(kind==='boat'){
     if(d<=-COASTAL_ZONES.boatMinOffshore)return groundY<SEA_LEVEL-.045;
     if(localWaterDepth!==null){

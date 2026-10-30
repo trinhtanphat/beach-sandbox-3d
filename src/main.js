@@ -474,7 +474,7 @@ function sculpt(point){
 function captureTerrain(){rememberChange(captureTerrainUndo(terrainPositions,lagoonSurface.fluid.depth));}
 function handleBrush(point){
  if(['raise','lower','smooth'].includes(tool)){sculpt(point);return;}
- if(tool==='plant'&&canPlace('tree',point.x,point.z,editedHeight(point.x,point.z))&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='plant'&&canPlace('tree',point.x,point.z,editedHeight(point.x,point.z),null,lagoonSurface.waterDepth(point.x,point.z))&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='rock'&&canPlace('rock',point.x,point.z)&&mayPlaceObject()){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='boat'&&canPlace('boat',point.x,point.z,editedHeight(point.x,point.z),lagoonSurface.isConnected(point.x,point.z),lagoonSurface.waterDepth(point.x,point.z))&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='erase'){
@@ -542,6 +542,9 @@ function applyIsland(saved){
    createBoat(item.x,item.z,item.scale);
   interactiveItems.push(o);
  }
+ // Water is restored before recreating objects. Hide imported trees whose
+ // saved roots are now under pond water, including elevated dammed basins.
+ syncAddedWaterObjects();
  waveHeight=saved.wave;
  foamIntensity=saved.foam;
  seaDynamics.reset({wave:waveHeight,foam:foamIntensity});
