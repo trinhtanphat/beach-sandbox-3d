@@ -55,6 +55,8 @@ The **v34 hydraulic Undo QA Worker** is [shoreline-sandbox-3d-v34-qa.mamspa.work
 
 The **v35 local pond boat QA Worker** is [shoreline-sandbox-3d-v35-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v35-qa.mamspa.workers.dev/). See the [v35 production release report](docs/BEACH_V35_RELEASE_2026-10-30.md) for 140/140 tests, real Chrome water-based boat placement and v34 rollback.
 
+The **v36 dry-root vegetation QA Worker** is [shoreline-sandbox-3d-v36-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v36-qa.mamspa.workers.dev/). The [v36 production release report](docs/BEACH_V36_RELEASE_2026-10-30.md) records 143/143 tests, Chrome flooded-tree import/plant checks, production deployment verification and v35 rollback.
+
 ## Quickstart
 
 Requires Node.js 20.19+ or 22.12+ (Node 24 works too).
