@@ -52,6 +52,8 @@ The **v33 live-Dig QA Worker** is [shoreline-sandbox-3d-v33-qa.mamspa.workers.de
 
 The **v34 hydraulic Undo QA Worker** is [shoreline-sandbox-3d-v34-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v34-qa.mamspa.workers.dev/). The [v34 production release report](docs/BEACH_V34_RELEASE_2026-10-29.md) records the 136/136 tests and real Dig + Undo verification restoring both terrain and trapped water, with v33 rollback.
 
+The **v35 local pond boat QA Worker** is [shoreline-sandbox-3d-v35-qa.mamspa.workers.dev](https://shoreline-sandbox-3d-v35-qa.mamspa.workers.dev/). See the [v35 production release report](docs/BEACH_V35_RELEASE_2026-10-30.md) for 140/140 tests, real Chrome water-based boat placement and v34 rollback.
+
 ## Quickstart
 
 Requires Node.js 20.19+ or 22.12+ (Node 24 works too).
