@@ -476,7 +476,7 @@ function handleBrush(point){
  if(['raise','lower','smooth'].includes(tool)){sculpt(point);return;}
  if(tool==='plant'&&canPlace('tree',point.x,point.z,editedHeight(point.x,point.z))&&mayPlaceObject()){const m=createTree(point.x,point.z,.65+rand()*.85);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='rock'&&canPlace('rock',point.x,point.z)&&mayPlaceObject()){const m=createRock(point.x,point.z,.6+rand()*1.4);interactiveItems.push(m);rememberChange({type:'added',object:m});}
- if(tool==='boat'&&canPlace('boat',point.x,point.z,editedHeight(point.x,point.z),lagoonSurface.isConnected(point.x,point.z))&&lagoonSurface.waterDepth(point.x,point.z)>.045&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
+ if(tool==='boat'&&canPlace('boat',point.x,point.z,editedHeight(point.x,point.z),lagoonSurface.isConnected(point.x,point.z),lagoonSurface.waterDepth(point.x,point.z))&&mayPlaceObject()){const m=createBoat(point.x,point.z,.6+rand()*.6);interactiveItems.push(m);rememberChange({type:'added',object:m});}
  if(tool==='erase'){
    let closest=null,best=brushSize;
    for(const o of interactiveItems){const d=Math.hypot(o.position.x-point.x,o.position.z-point.z);if(d<best){best=d;closest=o;}}
@@ -780,8 +780,10 @@ function animate(){requestAnimationFrame(animate);
      b.visible=lagoonSurface.waterDepth(anchorX,anchorZ)>.045;
      if(!b.visible)continue;
      const motion=lagoonWaterMotion(anchorX,anchorZ,elapsed,sea.wave);
-     b.position.x=anchorX+motion.vx;
-     b.position.z=anchorZ+motion.vz;
+     // Enclosed ponds have no tidal through-current, only local bobbing.
+     const hasInlet=lagoonSurface.isConnected(anchorX,anchorZ);
+     b.position.x=anchorX+(hasInlet?motion.vx:0);
+     b.position.z=anchorZ+(hasInlet?motion.vz:0);
      b.position.y=inlandBoatHeight(sampleGroundHeight(anchorX,anchorZ),lagoonSurface.waterDepth(anchorX,anchorZ),motion.height);
      b.rotation.x=Math.sin(elapsed*1.02+b.userData.phase)*.018*sea.wave;
      b.rotation.z=Math.cos(elapsed*.91+b.userData.phase)*.022*sea.wave;
